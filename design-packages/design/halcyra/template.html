@@ -1,11 +1,14 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>{{business.name}} {{business.kind}}</title>
+<meta name="description" content="{{hero.caption|plain|attr}}">
+<script>document.documentElement.classList.add('js');setTimeout(function(){if(!window.__halc)document.documentElement.classList.remove('js')},3500)</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 {{@fonts.link:theme.fonts}}
 <style>
-/* Layout: "a bottle under a spotlight in an aubergine room". A pinned hero where a glass flacon fills,
-   then scrolling is time on skin: the liquid shifts through nine notes, top to base, and the cap lifts to spray.
+/* Layout, v5: the real bottle among its ingredients (the brand's video or photos, or the design's own take) plays as
+   you scroll, and scrolling is time on skin: a wear clock runs round nine arcs in the notes' colours while each note
+   rises in large italic, top to base.
    Below, sections alternate between the dark room and pale orris-powder paper: a pyramid explorer,
    pulse points + specs, a 3-question wear quiz, and a size calculator. Deliberately one dark look. */
 :root {
@@ -71,59 +74,70 @@ p { margin: 0; }
 @media (max-width: 860px) { .nav .links { display: none; } .nav .sound { margin-left: auto; } }
 @media (max-width: 420px) { .nav .brand small { display: none; } .nav { gap: 10px; } .nav .cta { padding: 9px 14px; font-size: 13px; } .nav .sound { padding: 7px 10px; } }
 
-/* ---------- hero ---------- */
-.hero { position: relative; height: 460vh; background: var(--night); }
-.stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; isolation: isolate;
-  background: radial-gradient(circle calc(var(--bs, 300px) * 1.3) at var(--bx, 60%) var(--by, 50%), color-mix(in srgb, var(--note, var(--n-bergamot)) 24%, transparent), color-mix(in srgb, var(--note, var(--n-bergamot)) 7%, transparent) 48%, transparent 100%), var(--night); }
-.stage::before { content: ""; position: absolute; z-index: 0; top: 0; height: var(--floor, 80%); left: calc(var(--bx, 60%) - var(--bs, 300px) * .8); width: calc(var(--bs, 300px) * 1.6);
-  clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%); background: linear-gradient(color-mix(in srgb, var(--glass) 8%, transparent), color-mix(in srgb, var(--glass) 0%, transparent)); pointer-events: none; }
-.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 2; touch-action: pan-y; }
-.ghostword { position: absolute; z-index: 1; left: 0; right: 0; top: 50%; transform: translateY(-58%); text-align: center; pointer-events: none;
-  font-family: var(--display); font-style: italic; font-weight: 400; font-size: clamp(96px, 19vw, 300px); line-height: .9; letter-spacing: -.04em; white-space: nowrap;
-  color: color-mix(in srgb, var(--note, var(--n-bergamot)) 21%, transparent); }
-.ghostword span { display: inline-block; transition: transform .9s var(--out), filter .9s var(--out); }
-.ghostword span.swap { transform: translateY(14%) scale(.96); filter: blur(10px); transition: none; }
-.hero-copy { position: absolute; z-index: 3; left: var(--gutter); top: calc(env(safe-area-inset-top, 0px) + 96px); width: min(460px, 38vw); display: grid; gap: 18px; }
-.hero-copy h1 { font-size: clamp(64px, 8.6vw, 140px); font-style: italic; font-weight: 400; letter-spacing: -.035em; line-height: .86; }
-.hero-copy h1 b { display: block; font-family: var(--mono); font-style: normal; font-weight: 400; font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: var(--dim); margin-bottom: 14px; }
-.hero-copy .caption { font-size: 18px; font-weight: 300; color: var(--orris); max-width: 34ch; min-height: 3.2em; }
-.hero-copy .caption em { font-style: normal; color: var(--note-light, var(--amber)); transition: color .4s; }
-.hero-copy .facts { display: flex; flex-wrap: wrap; gap: 8px 18px; font-family: var(--mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
-.hero-copy .facts span b { color: var(--orris); font-weight: 500; }
-.hud { position: absolute; z-index: 3; right: var(--gutter); bottom: max(28px, env(safe-area-inset-bottom, 0px)); width: min(330px, 28vw); display: grid; gap: 14px; }
-.hud-top { display: grid; grid-template-columns: 92px minmax(0,1fr); gap: 16px; align-items: end; }
-.hud svg { width: 92px; height: auto; display: block; overflow: visible; }
-.hud .tier-shape { fill: color-mix(in srgb, var(--orris) 6%, transparent); stroke: color-mix(in srgb, var(--orris) 34%, transparent); stroke-width: .8; }
-.hud .tier-fill { fill: var(--note, var(--n-bergamot)); }
-.hud .tier-done { fill: color-mix(in srgb, var(--orris) 30%, transparent); }
-.hud-text { min-width: 0; display: grid; gap: 4px; }
-.hud-tier { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--note-light, var(--dim)); }
-.hud-note { font-family: var(--display); font-style: italic; font-size: 38px; line-height: 1; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hud-smell { font-size: 14px; color: var(--dim); font-weight: 300; }
-.hud-clock { display: flex; justify-content: space-between; gap: 10px; font-family: var(--mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); border-top: 1px solid var(--line); padding-top: 10px; font-variant-numeric: tabular-nums; }
-.hud-clock b { color: var(--orris); font-weight: 500; }
-.hud-dots { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; }
-.hud-dots i { height: 3px; border-radius: 2px; background: var(--line); transition: background-color .4s; }
-.hud-dots i.on { background: var(--orris); }
-.hud-dots i.now { background: var(--note, var(--amber)); }
-.scroll-cue { position: absolute; z-index: 3; left: var(--gutter); bottom: max(28px, env(safe-area-inset-bottom, 0px)); font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); display: flex; gap: 12px; align-items: center; }
-.scroll-cue::before { content: ""; width: 1px; height: 38px; background: linear-gradient(var(--orris), transparent); animation: cue 2.2s var(--out) infinite; transform-origin: top; }
-@keyframes cue { 0% { transform: scaleY(0); } 60% { transform: scaleY(1); } 100% { transform: scaleY(1); opacity: 0; } }
-.hero-end { position: absolute; z-index: 3; left: var(--gutter); bottom: max(28px, env(safe-area-inset-bottom, 0px)); display: flex; gap: 10px; flex-wrap: wrap; }
-
+/* ---------- hero: the take, with the wear clock ---------- */
+.hero { position: relative; background: var(--night); }
+.stage { position: relative; height: min(100svh, 960px); min-height: 620px; overflow: hidden; --note: var(--amber); }
+.js:not(.flat) .hero { height: 560vh; }
+.js:not(.flat) .stage { position: sticky; top: 0; height: 100svh; min-height: 0; }
+.poster, #film { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.poster { object-fit: cover; }
+.veil { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(90deg, {{R:rgba(20,14,19,.86)}} 0%, {{R:rgba(20,14,19,.45)}} 38%, {{R:rgba(20,14,19,0)}} 64%), linear-gradient(0deg, {{R:rgba(20,14,19,.75)}} 0%, transparent 34%); }
+.hero-copy { position: absolute; z-index: 3; left: var(--gutter); bottom: clamp(30px, 8vh, 90px); width: min(560px, 46vw); transition: opacity .45s, transform .6s var(--out); }
+.hero-copy h1 { font-size: clamp(64px, 8.6vw, 140px); font-weight: 400; }
+.hero-copy h1 b { display: block; font-family: var(--mono); font-weight: 400; font-size: 11.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); margin-bottom: 18px; }
+.hero-copy h1 em { color: var(--amber); }
+.hero-copy .caption { margin-top: 20px; max-width: 36ch; font-size: clamp(16px, 1.4vw, 19px); color: var(--orris); font-weight: 300; }
+.hero-copy .caption em { font-style: italic; color: var(--metal-light); }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 18px; font-family: var(--mono); font-size: 12px; color: var(--dim); }
+.facts b { color: var(--orris); font-weight: 500; }
+.hero-copy .acts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.js:not(.flat) .hero-copy.off { opacity: 0; transform: translateY(-26px); pointer-events: none; }
+.notecard { position: absolute; z-index: 3; left: var(--gutter); top: 42%; transform: translateY(-50%); width: min(560px, 48vw); opacity: 0; visibility: hidden; transition: opacity .45s, visibility .45s; }
+.notecard.on { opacity: 1; visibility: visible; }
+.notecard .ntier { font-family: var(--mono); font-size: 11.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
+.notecard .name { display: block; margin: 14px 0 16px; font-family: var(--display); font-style: italic; font-weight: 400; font-size: clamp(60px, 8vw, 132px); line-height: .9; letter-spacing: -.03em; color: var(--note-light, var(--orris)); text-shadow: 0 4px 40px rgba(0,0,0,.35); }
+.notecard .smell { font-size: clamp(17px, 1.5vw, 21px); font-weight: 300; max-width: 30ch; }
+.notecard .cap { margin-top: 18px; max-width: 40ch; color: var(--dim); font-size: 15px; }
+.notecard .cap em { font-style: italic; color: var(--metal-light); }
+.notecard.swap .name { animation: rise .8s var(--out) both; }
+.notecard.swap .smell { animation: fade .6s .08s var(--out) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(30px); filter: blur(6px); } }
+@keyframes fade { from { opacity: 0; } }
+.clock { position: absolute; z-index: 3; left: calc(var(--gutter) + 30px); bottom: clamp(40px, 8vh, 80px); width: clamp(150px, 13vw, 190px); aspect-ratio: 1; opacity: 0; visibility: hidden; transition: opacity .5s, visibility .5s; }
+.clock.on { opacity: 1; visibility: visible; }
+.clock svg { width: 100%; height: 100%; overflow: visible; }
+.clock .face { fill: {{R:rgba(20,14,19,.42)}}; stroke: var(--line); }
+.clock .arc { fill: none; stroke-width: 7; stroke-linecap: round; opacity: .22; transition: opacity .4s; }
+.clock .arc.on { opacity: 1; }
+.clock .tick { stroke: var(--line); stroke-width: 1; }
+.clock .hand { stroke: var(--orris); stroke-width: 2; stroke-linecap: round; }
+.clock .hub { fill: var(--note); }
+.clock .lbl { fill: var(--dim); font-family: var(--mono); font-size: 7.5px; letter-spacing: .12em; text-transform: uppercase; }
+.clock .time { position: absolute; left: 0; right: 0; top: 62%; text-align: center; }
+.clock .time b { display: block; font-family: var(--display); font-weight: 400; font-size: clamp(26px, 2.6vw, 40px); line-height: 1; }
+.clock .time span { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.hero-end { position: absolute; z-index: 4; left: calc(var(--gutter) + 60px + clamp(150px, 13vw, 190px)); bottom: calc(clamp(40px, 8vh, 80px) + 60px); display: flex; flex-wrap: wrap; gap: 10px; opacity: 0; visibility: hidden; transition: opacity .4s; }
+.hero-end.on { opacity: 1; visibility: visible; }
+.reel { margin: 0; padding: 30px var(--gutter) 50px; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; border-top: 1px solid var(--line); }
+.reel b { display: block; font-family: var(--display); font-style: italic; font-weight: 400; font-size: 34px; margin: 8px 0; }
+.reel p { color: var(--dim); font-size: 15px; }
+.reel p em { font-style: italic; }
+.js:not(.flat) .reel, .flat .notecard, .flat .clock, .flat .hero-end { display: none; }
 @media (max-width: 759px) {
-  .hero-copy { width: auto; right: var(--gutter); top: calc(env(safe-area-inset-top, 0px) + 70px); gap: 10px; }
+  .js:not(.flat) .hero { height: 500vh; }
+  .veil { background: linear-gradient(180deg, {{R:rgba(20,14,19,.55)}} 0%, transparent 30%, {{R:rgba(20,14,19,.35)}} 48%, {{R:rgba(20,14,19,.92)}} 100%); }
+  .hero-copy { width: auto; right: var(--gutter); bottom: 28px; }
   .hero-copy h1 { font-size: 64px; }
-  .hero-copy h1 b { font-size: 10.5px; margin-bottom: 8px; }
-  .hero-copy .caption { font-size: 15.5px; min-height: 3.3em; max-width: 36ch; }
-  .hero-copy .facts { display: none; }
-  .hud { left: var(--gutter); right: var(--gutter); width: auto; bottom: max(18px, env(safe-area-inset-bottom, 0px)); gap: 10px; }
-  .hud-top { grid-template-columns: 64px minmax(0,1fr); gap: 14px; }
-  .hud svg { width: 64px; }
-  .hud-note { font-size: 30px; }
-  .hud-smell { font-size: 13px; }
-  .scroll-cue, .hero-end { display: none; }
-  .ghostword { font-size: 30vw; top: 47%; }
+  .hero-copy .caption { font-size: 15.5px; }
+  .notecard { top: auto; bottom: 96px; transform: none; width: auto; right: var(--gutter); }
+  .notecard .name { font-size: 56px; margin: 10px 0 10px; }
+  .notecard .smell { font-size: 16px; }
+  .notecard .cap { display: none; }
+  .clock { top: calc(env(safe-area-inset-top, 0px) + 74px); bottom: auto; left: auto; right: var(--gutter); width: 150px; }
+  .clock .lbl { display: none; }
+  .clock .time b { font-size: 22px; }
+  .hero-end { left: var(--gutter); right: var(--gutter); bottom: 28px; }
+  .reel { grid-template-columns: 1fr; }
 }
 
 /* ---------- shared section ---------- */
@@ -303,47 +317,45 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 <nav class="nav" aria-label="Main">
   <a class="brand" href="#hero">{{business.short}}<small>{{business.kind|upper}}</small></a>
   <div class="links"><a href="#notes">{{nav.notes}}</a><a href="#wear">{{nav.wear}}</a><a href="#quiz">{{nav.quiz}}</a><a href="#sizes">{{nav.sizes}}</a></div>
-  <button class="sound" id="soundBtn" type="button" aria-pressed="false"><i></i>Sound</button>
   <a class="btn amber cta" href="#sizes">{{nav.ctaVerb}} {{$.featuredMl}} ml · {{$.featuredPrice}}</a>
 </nav>
 
 <main>
   <section class="hero" id="hero" aria-label="{{product.name|plain|attr}}, {{product.type|lower|attr}}">
     <div class="stage" id="stage">
-      <div class="ghostword" aria-hidden="true"><span id="ghost">{{product.name|plain}}</span></div>
-      <canvas id="bottle" aria-label="A glass perfume bottle filled with {{product.name|plain|attr}}. The liquid changes colour through the notes as you scroll. Tap it to make it slosh." role="img"></canvas>
-      <div class="hero-copy">
+{{#if $.film.poster}}      <img class="poster" src="{{$.film.poster|attr}}" alt="" aria-hidden="true">
+{{/if}}      <canvas id="film" role="img" aria-label="{{product.name|plain|attr}}: the bottle among its ingredients, from first light to evening"></canvas>
+      <div class="veil"></div>
+      <div class="hero-copy" id="heroCopy">
         <h1><b>{{business.name}} · {{product.number}} · {{product.type}}</b>{{product.name|rich}}</h1>
         <p class="caption" id="caption">{{hero.caption|rich}}</p>
         <div class="facts"><span><b>{{product.concentration}}%</b> {{product.typeShort}}</span><span><b>{{product.longevity}}</b> on skin</span><span><b>{{$.featuredMl}} ml</b> · {{$.featuredPrice}}</span></div>
+        <div class="acts"><a class="btn amber" href="#sizes">{{nav.ctaVerb}} {{$.featuredMl}} ml · {{$.featuredPrice}}</a><a class="btn ghost" href="#notes">{{nav.notes}}</a></div>
       </div>
-      <div class="hud" aria-live="off">
-        <div class="hud-top">
-          <svg viewBox="0 0 100 88" aria-hidden="true">
-            <defs>
-              <clipPath id="cp0"><polygon points="50,2 64.2,28 35.8,28"/></clipPath>
-              <clipPath id="cp1"><polygon points="34.1,31 65.9,31 80.1,57 19.9,57"/></clipPath>
-              <clipPath id="cp2"><polygon points="18.2,60 81.8,60 96,86 4,86"/></clipPath>
-            </defs>
-            <polygon class="tier-shape" points="50,2 64.2,28 35.8,28"/>
-            <polygon class="tier-shape" points="34.1,31 65.9,31 80.1,57 19.9,57"/>
-            <polygon class="tier-shape" points="18.2,60 81.8,60 96,86 4,86"/>
-            <rect id="tf0" clip-path="url(#cp0)" x="0" y="28" width="100" height="0" class="tier-fill"/>
-            <rect id="tf1" clip-path="url(#cp1)" x="0" y="57" width="100" height="0" class="tier-fill"/>
-            <rect id="tf2" clip-path="url(#cp2)" x="0" y="86" width="100" height="0" class="tier-fill"/>
-          </svg>
-          <div class="hud-text">
-            <span class="hud-tier" id="hudTier">{{hud.filling}}</span>
-            <span class="hud-note" id="hudNote">{{product.short}}</span>
-            <span class="hud-smell" id="hudSmell">{{product.type}}, {{product.concentration}}% concentrate</span>
-          </div>
-        </div>
-        <div class="hud-dots" id="hudDots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-        <div class="hud-clock"><span>On skin <b id="hudClock">0 min</b></span><span id="hudPhase">{{tiers.0.short}} · {{tiers.0.range}}</span></div>
+      <div class="notecard" id="notecard" aria-live="polite">
+        <span class="ntier" id="hudTier">{{tiers.0.name}}</span>
+        <span class="name" id="hudNote">{{notes.0.name}}</span>
+        <p class="smell" id="hudSmell">{{notes.0.hud}}</p>
+        <p class="cap" id="tierCap">{{tiers.0.caption|rich}}</p>
       </div>
-      <div class="scroll-cue" id="cue">{{hero.scrollCue}}</div>
-      <div class="hero-end" id="heroEnd" hidden><a class="btn amber" href="#sizes">{{hero.endSizes}}</a><a class="btn ghost" href="#quiz">{{hero.endQuiz}}</a></div>
+      <div class="clock" id="clock" aria-hidden="true">
+        <svg viewBox="-110 -110 220 220">
+          <circle class="face" r="100"/>
+          <g id="ticks"></g>
+          <g id="arcs"></g>
+          <text class="lbl" x="98" y="-62" text-anchor="start">{{tiers.0.short}}</text>
+          <text class="lbl" x="0" y="124" text-anchor="middle">{{tiers.1.short}}</text>
+          <text class="lbl" x="-98" y="-62" text-anchor="end">{{tiers.2.short}}</text>
+          <line class="hand" id="hand" x1="0" y1="0" x2="0" y2="-70"/>
+          <circle class="hub" r="5"/>
+        </svg>
+        <div class="time"><b id="hudClock">0 min</b><span id="hudPhase">{{tiers.0.short}} · {{tiers.0.range}}</span></div>
+      </div>
+      <div class="hero-end" id="heroEnd"><a class="btn amber" href="#sizes">{{hero.endSizes}}</a><a class="btn ghost" href="#quiz">{{hero.endQuiz}}</a></div>
     </div>
+    <ol class="reel">
+{{#each tiers join="\n"}}      <li><span class="eyebrow">{{.range}}</span><b>{{.name}}</b><p>{{.caption|rich}}</p></li>{{/each}}
+    </ol>
   </section>
 
   <section class="sec paper" id="notes">
@@ -506,39 +518,67 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
   NOTES.forEach(n => { n.hex = tok(n.v) || "#ccaa66"; n.rgb = hex(n.hex); });
   const TIME = [0, {{timeline.heartFrom}}, {{timeline.baseFrom}}, {{timeline.end}}];
 
-  /* ---------- sound (only after a tap on the toggle) ---------- */
-  let actx = null, soundOn = false;
-  const soundBtn = $("#soundBtn");
-  soundBtn.addEventListener("click", () => {
-    soundOn = !soundOn; soundBtn.setAttribute("aria-pressed", soundOn);
-    if (soundOn && !actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
-    if (actx && actx.state === "suspended") actx.resume();
-    if (soundOn) ting(.6);
+  /* ---------- the hero: the take plays with the scroll, the wear clock runs ---------- */
+  const STILL = /[?&]still\b/.test(location.search), FLAT = reduce || STILL;
+  if (FLAT) document.documentElement.classList.add("flat");
+  {{$.film.runtime|raw}}
+  const film = SRFilm($("#film"), {{$.film.json|raw}}, { flat: FLAT, fx: .45 });
+  const hero = $("#hero"), stage = $("#stage");
+  function info(p) {
+    if (p < .1) return { stage: -1, idx: 0, tier: 0, minutes: 0, tierFrac: 0, frac: 0 };
+    const nf = clamp((p - .1) / .8, 0, .99999) * 9;
+    const idx = Math.floor(nf), tier = Math.floor(idx / 3), tierFrac = (nf - tier * 3) / 3;
+    const minutes = p >= .9 ? 540 : TIME[tier] + (TIME[tier + 1] - TIME[tier]) * tierFrac;
+    return { stage: p >= .9 ? 3 : tier, idx, tier, minutes, tierFrac: p >= .9 ? 1 : tierFrac, frac: p >= .9 ? 1 : nf / 9 };
+  }
+  // the clock: nine arcs, one per note, in its colour; the hand runs round as the hours pass
+  const arcs = $("#arcs"), ticks = $("#ticks"), NS = "http://www.w3.org/2000/svg";
+  const polar = (a, r) => [Math.sin(a) * r, -Math.cos(a) * r];
+  NOTES.forEach((n, i) => {
+    const a0 = i / 9 * Math.PI * 2 + .05, a1 = (i + 1) / 9 * Math.PI * 2 - .05, [x0, y0] = polar(a0, 88), [x1, y1] = polar(a1, 88);
+    const pth = document.createElementNS(NS, "path"); pth.setAttribute("d", `M${x0.toFixed(2)} ${y0.toFixed(2)}A88 88 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`); pth.setAttribute("class", "arc"); pth.style.stroke = n.hex; arcs.appendChild(pth);
   });
-  function ting(vol = 1) {
-    if (!soundOn || !actx) return;
-    const t = actx.currentTime, out = actx.createGain(); out.gain.value = .12 * vol; out.connect(actx.destination);
-    [[1975, 1], [3012, .45], [4410, .2]].forEach(([f, a]) => {
-      const o = actx.createOscillator(), g = actx.createGain(); o.type = "sine"; o.frequency.value = f * (0.995 + Math.random() * .01);
-      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(a, t + .004); g.gain.exponentialRampToValueAtTime(.0001, t + 1.6);
-      o.connect(g); g.connect(out); o.start(t); o.stop(t + 1.7);
-    });
+  for (let i = 0; i < 36; i++) { const a = i / 36 * Math.PI * 2, [x0, y0] = polar(a, i % 4 ? 96 : 92), [x1, y1] = polar(a, 100); const l = document.createElementNS(NS, "line"); l.setAttribute("x1", x0); l.setAttribute("y1", y0); l.setAttribute("x2", x1); l.setAttribute("y2", y1); l.setAttribute("class", "tick"); ticks.appendChild(l); }
+  const el = { copy: $("#heroCopy"), card: $("#notecard"), tier: $("#hudTier"), note: $("#hudNote"), smell: $("#hudSmell"), cap: $("#tierCap"), clock: $("#hudClock"), phase: $("#hudPhase"), dial: $("#clock"), hand: $("#hand"), end: $("#heroEnd"), arcs: $$("#arcs path") };
+  const fmtMin = m => m < 60 ? `${Math.round(m)} min` : `${Math.floor(m / 60)} h ${String(Math.round(m % 60)).padStart(2, "0")} min`;
+  let hudKey = "";
+  function updateHud(inf) {
+    const running = inf.stage !== -1;
+    el.copy.classList.toggle("off", running);
+    el.card.classList.toggle("on", running);
+    el.dial.classList.toggle("on", running);
+    el.end.classList.toggle("on", inf.stage === 3);
+    const n = NOTES[inf.idx];
+    stage.style.setProperty("--note", n.hex); stage.style.setProperty("--note-light", `color-mix(in srgb, ${n.hex} 70%, white)`);
+    const key = inf.stage === 3 ? "end" : "n" + inf.idx;
+    if (running && key !== hudKey) {
+      hudKey = key;
+      if (inf.stage === 3) { el.tier.textContent = {{hud.end.phase|jsd}}; el.note.textContent = {{hud.end.note|jsd}}; el.smell.textContent = {{hud.end.smell|jsd}}; el.cap.innerHTML = {{hud.end.caption|rich|jsd}}; }
+      else { el.tier.textContent = `${TIERS[inf.tier].name} · ${inf.idx % 3 + 1} of 3`; el.note.textContent = n.name; el.smell.textContent = n.hud; el.cap.innerHTML = TIERS[inf.tier].caption; }
+      if (!reduce) { el.card.classList.remove("swap"); void el.card.offsetWidth; el.card.classList.add("swap"); }
+    }
+    el.clock.textContent = inf.stage === 3 ? {{hud.end.clock|jsd}} : fmtMin(inf.minutes);
+    el.phase.textContent = inf.stage === 3 ? {{hud.end.phase|jsd}} : `${TIERS[inf.tier].short} · ${TIERS[inf.tier].range}`;
+    el.hand.setAttribute("transform", `rotate(${(inf.frac * 360).toFixed(2)})`);
+    el.arcs.forEach((a, i) => a.classList.toggle("on", running && i <= inf.idx));
   }
-  function hiss() {
-    if (!soundOn || !actx) return;
-    const t = actx.currentTime, len = .45, buf = actx.createBuffer(1, actx.sampleRate * len, actx.sampleRate), d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
-    const src = actx.createBufferSource(), hp = actx.createBiquadFilter(), g = actx.createGain();
-    src.buffer = buf; hp.type = "highpass"; hp.frequency.value = 3800;
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.09, t + .03); g.gain.exponentialRampToValueAtTime(.0001, t + len);
-    src.connect(hp); hp.connect(g); g.connect(actx.destination); src.start(t);
+  const papers = $$(".paper"), nav = $(".nav"); let navPaper = false;
+  function heroP() { const r = hero.getBoundingClientRect(), span = r.height - innerHeight; return clamp(-r.top / Math.max(1, span), 0, 1); }
+  let inFrame = false; try { inFrame = window.self !== window.top; } catch (e) { inFrame = true; }
+  let AUTO = inFrame && scrollY < 1 && !FLAT, pS = FLAT ? 0 : heroP(), lastHud = -1, vis = true;
+  if (AUTO) addEventListener("scroll", () => { if (AUTO && scrollY >= 1) { AUTO = false; film.poke(); } }, { passive: true });
+  if ("IntersectionObserver" in window) new IntersectionObserver(es => { vis = es[0].isIntersecting; }, { rootMargin: "120px" }).observe(stage);
+  function frame(now) {
+    if (!FLAT) { const p = heroP(); pS = reduce ? p : pS + (p - pS) * .16; if (Math.abs(p - pS) < 1e-4) pS = p; }
+    let onPaper = false;
+    for (const pe of papers) { const pr = pe.getBoundingClientRect(); if (pr.top <= 36 && pr.bottom > 36) onPaper = true; }
+    if (onPaper !== navPaper) { navPaper = onPaper; nav.classList.toggle("on-paper", onPaper); }
+    if (vis) { film.draw(FLAT ? 1 : AUTO ? ((now / 1000) / Math.max(4, film.seconds())) % 1 : pS, now / 1000); if (!FLAT && Math.abs(pS - lastHud) > 1e-5) { updateHud(info(AUTO ? 0 : pS)); lastHud = pS; } }
+    requestAnimationFrame(frame);
   }
-  function click() {
-    if (!soundOn || !actx) return;
-    const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
-    o.type = "triangle"; o.frequency.setValueAtTime(1200, t); o.frequency.exponentialRampToValueAtTime(500, t + .05);
-    g.gain.setValueAtTime(.06, t); g.gain.exponentialRampToValueAtTime(.0001, t + .08); o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + .1);
-  }
+  (function () { const h = $("#heroCopy h1"); if (!h || reduce || STILL) return; const em = h.querySelector("em"); if (!em) return; em.style.display = "inline-block"; em.animate([{ opacity: 0, transform: "translateY(30px)", filter: "blur(8px)" }, { opacity: 1, transform: "none", filter: "blur(0)" }], { duration: 1100, delay: 250, easing: "cubic-bezier(.16,1,.3,1)", fill: "backwards" }); })();
+  addEventListener("resize", () => film.size());
+  requestAnimationFrame(frame);
 
   /* ---------- bottle geometry (units of S: body height) ---------- */
   const BW = .36, NECK = .085, GT = .05, LFULL = .27, LEMPTY = .80, CAV_BOT = .80;
@@ -566,456 +606,7 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
     return pts;
   }
   const OUT = outerPts(), INN = innerPts();
-  const toPath = (pts, s) => { const p = new Path2D(); pts.forEach(([x, y], i) => i ? p.lineTo(x * s, y * s) : p.moveTo(x * s, y * s)); p.closePath(); return p; };
   const toD = (pts, s = 1, ox = 0, oy = 0) => pts.map(([x, y], i) => (i ? "L" : "M") + (x * s + ox).toFixed(4) + " " + (y * s + oy).toFixed(4)).join("") + "Z";
-
-  /* ---------- hero canvas ---------- */
-  const hero = $("#hero"), stage = $("#stage"), cv = $("#bottle"), ctx = cv.getContext("2d");
-  let W = 0, H = 0, DPR = 1, S = 300, BX = 0, BY = 0, pOuter, pInner, mobile = false;
-  // offscreen layers sized to the bottle body only (local box x: -.4..4, y: -.06..1.02 in S units)
-  const BOX = { x0: -.4, y0: -.06, w: .8, h: 1.08 };
-  const bc = document.createElement("canvas"), bctx = bc.getContext("2d");
-  const lc = document.createElement("canvas"), lctx = lc.getContext("2d");
-  const fc = document.createElement("canvas"), fctx = fc.getContext("2d");
-  function layout() {
-    mobile = W < 760;
-    const sr = stage.getBoundingClientRect();
-    if (mobile) {
-      const cb = $(".hero-copy").getBoundingClientRect().bottom - sr.top + 6;
-      const hb = $(".hud").getBoundingClientRect().top - sr.top - 4;
-      const avail = Math.max(200, hb - cb);
-      S = Math.min(avail / 1.6, W * .95);
-      BX = W * .5;
-      BY = cb + (avail - 1.56 * S) / 2 + .48 * S;
-    } else {
-      const top = 84, bot = H - 26, avail = bot - top;
-      S = Math.min(avail / 1.6, W * .31);
-      const hudL = W - Math.max(16, W * .042) - Math.min(330, W * .28), copyR = Math.max(16, W * .042) + Math.min(460, W * .38);
-      BX = clamp(W * .585, copyR + .36 * S, hudL - .42 * S);
-      BY = top + (avail - 1.56 * S) / 2 + .48 * S;
-    }
-    pOuter = toPath(OUT, S); pInner = toPath(INN, S);
-    const bw = Math.ceil(BOX.w * S * DPR), bh = Math.ceil(BOX.h * S * DPR);
-    for (const k of [bc, lc, fc]) { k.width = bw; k.height = bh; }
-    stage.style.setProperty("--bx", BX + "px"); stage.style.setProperty("--by", (BY + .32 * S) + "px");
-    stage.style.setProperty("--bs", S + "px"); stage.style.setProperty("--floor", (BY + 1.1 * S) + "px");
-    renderFront();
-  }
-  function resize() {
-    const r = stage.getBoundingClientRect();
-    W = r.width; H = r.height; DPR = Math.min(matchMedia('(pointer:coarse)').matches?1.5:2, window.devicePixelRatio || 1);
-    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
-    layout();
-  }
-  const local = k => k.setTransform(DPR, 0, 0, DPR, -BOX.x0 * S * DPR, -BOX.y0 * S * DPR);
-  const X = v => v * S;
-
-  /* front glass: rims, speculars and the etched label never change, so they are drawn once */
-  function renderFront() {
-    const c = fctx; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, fc.width, fc.height); local(c);
-    let g = c.createLinearGradient(X(-BW), 0, X(BW), 0);
-    g.addColorStop(0, rgba(WHITE, .8)); g.addColorStop(.3, rgba(WHITE, .18)); g.addColorStop(.7, rgba(WHITE, .14)); g.addColorStop(1, rgba(WHITE, .55));
-    c.lineWidth = 1.6; c.strokeStyle = g; c.stroke(pOuter);
-    c.lineWidth = 1; c.strokeStyle = rgba(WHITE, .18); c.stroke(pInner);
-    c.save(); c.clip(pOuter);
-    const streak = (x0, w, y0, y1, a) => {
-      const gg = c.createLinearGradient(0, X(y0), 0, X(y1));
-      gg.addColorStop(0, rgba(WHITE, 0)); gg.addColorStop(.18, rgba(WHITE, a)); gg.addColorStop(.7, rgba(WHITE, a * .45)); gg.addColorStop(1, rgba(WHITE, 0));
-      c.fillStyle = gg; c.beginPath(); c.roundRect ? c.roundRect(X(x0), X(y0), X(w), X(y1 - y0), X(w) / 2) : c.rect(X(x0), X(y0), X(w), X(y1 - y0)); c.fill();
-    };
-    streak(-.305, .042, .2, .84, .55);
-    streak(-.245, .01, .26, .7, .3);
-    streak(.27, .014, .28, .78, .3);
-    c.lineWidth = X(.016); c.lineCap = "round";
-    g = c.createLinearGradient(X(-.3), X(.15), X(-.1), X(.02));
-    g.addColorStop(0, rgba(WHITE, 0)); g.addColorStop(.5, rgba(WHITE, .7)); g.addColorStop(1, rgba(WHITE, 0));
-    c.strokeStyle = g; c.beginPath();
-    for (let i = 0; i <= 20; i++) { const t = .02 + i / 20 * .14; const x = -(hw(t) - .03), y = t + .02; i ? c.lineTo(X(x), X(y)) : c.moveTo(X(x), X(y)); }
-    c.stroke();
-    g = c.createLinearGradient(X(-.22), 0, X(.22), 0);
-    g.addColorStop(0, rgba(WHITE, 0)); g.addColorStop(.5, rgba(WHITE, .6)); g.addColorStop(1, rgba(WHITE, 0));
-    c.fillStyle = g; c.fillRect(X(-.22), X(.985), X(.44), X(.012));
-    c.restore();
-    // etched label
-    c.textAlign = "center"; c.textBaseline = "alphabetic";
-    const label = (txt, font, y, ls) => {
-      c.font = font; if ("letterSpacing" in c) c.letterSpacing = ls + "px";
-      c.fillStyle = rgba(BLACK, .3); c.fillText(txt, 1, y + 1); c.fillStyle = rgba(WHITE, .9); c.fillText(txt, 0, y);
-    };
-    label({{business.short|upper|jsd}}, `500 ${Math.round(X(.036))}px ${tok("--body")}`, X(.50), X(.016));
-    label({{product.short|jsd}}, `italic 400 ${Math.round(X(.085))}px ${tok("--display")}`, X(.59), 0);
-    label({{$.labelLine|jsd}}, `400 ${Math.max(8, Math.round(X(.019)))}px ${tok("--mono")}`, X(.645), X(.004));
-    if ("letterSpacing" in c) c.letterSpacing = "0px";
-    c.strokeStyle = rgba(WHITE, .45); c.lineWidth = 1; c.beginPath(); c.moveTo(X(-.07), X(.52)); c.lineTo(X(.07), X(.52)); c.stroke();
-  }
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (S) renderFront(); });
-
-  /* physics */
-  const M = 56, XS = new Float32Array(M), hgt = new Float32Array(M), vel = new Float32Array(M), tmp = new Float32Array(M);
-  for (let i = 0; i < M; i++) XS[i] = -.34 + .68 * i / (M - 1);
-  let phi = 0, phiV = 0, alpha = 0, alphaV = 0, prevAlphaV = 0;
-  let sv = 0, lastSY = window.scrollY, pS = 0, ptrX = 0, devTilt = 0, devSeen = false;
-  const bubbles = [], mist = [];
-  let lastPuff = 0;
-
-  function impulse(xc, amt, width = .006) {
-    for (let i = 0; i < M; i++) { const d = XS[i] - xc; vel[i] += amt * Math.exp(-d * d / width); }
-  }
-  function spawnBubbles(n, x0, spread, yStart) {
-    for (let k = 0; k < n && bubbles.length < 90; k++) bubbles.push({ x: x0 + (Math.random() - .5) * spread, y: yStart + Math.random() * .12, r: .003 + Math.random() * .009, vy: .0015 + Math.random() * .003, w: Math.random() * 6.28 });
-  }
-  function stepPhysics(f, T, level, intro) {
-    const target = clamp(sv * .006, -.24, .24) + ptrX * .11 + Math.sin(T * .7) * .018;
-    phiV += ((target - phi) * .055 - phiV * .2) * f; phi += phiV * f;
-    const aT = clamp(-phi - devTilt, -.55, .55);
-    alphaV += ((aT - alpha) * .042 - alphaV * (reduce ? .3 : .055)) * f; alpha += alphaV * f;
-    const acc = (alphaV - prevAlphaV); prevAlphaV = alphaV;
-    if (!reduce) for (let i = 0; i < M; i++) vel[i] += -acc * XS[i] * 1.1;
-    if (Math.abs(acc) > .004 && !reduce && Math.random() < .3) spawnBubbles(2, (Math.random() - .5) * .4, .1, level + .05);
-    const subs = 2, c2 = .2, damp = reduce ? .2 : .016;
-    for (let s = 0; s < subs; s++) {
-      for (let i = 0; i < M; i++) {
-        const l = hgt[i > 0 ? i - 1 : 0], r = hgt[i < M - 1 ? i + 1 : M - 1];
-        tmp[i] = vel[i] + (c2 * (l + r - 2 * hgt[i]) - damp * vel[i]) * f;
-      }
-      let mean = 0;
-      for (let i = 0; i < M; i++) { vel[i] = tmp[i]; hgt[i] += vel[i] * f * .5; mean += hgt[i]; }
-      mean /= M; for (let i = 0; i < M; i++) hgt[i] = clamp(hgt[i] - mean, -.12, .12);
-    }
-    if (intro > 0 && intro < 1 && !reduce) { impulse((Math.random() - .5) * .02, .0035 * f, .002); if (Math.random() < .5) spawnBubbles(2, 0, .05, level + .02); }
-    if (!reduce && Math.random() < .02) impulse((Math.random() - .5) * .5, (Math.random() - .5) * .002);
-  }
-
-  /* stage mapping: scroll = time on skin */
-  function info(p) {
-    if (p < .1) return { stage: -1, idx: 0, tier: 0, u: 0, minutes: 0, tierFrac: 0 };
-    const nf = clamp((p - .1) / .8, 0, .99999) * 9;
-    const idx = Math.floor(nf), tier = Math.floor(idx / 3), tierFrac = (nf - tier * 3) / 3;
-    const minutes = p >= .9 ? 540 : TIME[tier] + (TIME[tier + 1] - TIME[tier]) * tierFrac;
-    return { stage: p >= .9 ? 3 : tier, idx, tier, u: clamp(nf - .5, 0, 8), minutes, tierFrac: p >= .9 ? 1 : tierFrac };
-  }
-  function liquidColor(u) {
-    const i0 = Math.floor(u), i1 = Math.min(8, i0 + 1), fr = smooth(.3, .7, u - i0);
-    return mix(NOTES[i0].rgb, NOTES[i1].rgb, fr);
-  }
-
-  /* ---------- drawing ---------- */
-  const front = new Float32Array(M), back = new Float32Array(M);
-  function drawLiquid(T, col, light, deep, deeper, level) {
-    const c = lctx; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, lc.width, lc.height);
-    if (level >= CAV_BOT - .005) return false;
-    local(c);
-    const xm = ihw(clamp(level, 0, CAV_BOT)), ta = Math.tan(alpha), bow = .012, band = .045;
-    for (let i = 0; i < M; i++) {
-      const x = XS[i], q = clamp(1 - (x / xm) * (x / xm), 0, 1);
-      const amb = reduce ? 0 : .0028 * Math.sin(x * 19 + T * 1.7) + .0016 * Math.sin(x * 33 - T * 2.4);
-      front[i] = X(level + ta * x + hgt[i] + amb + bow * Math.sqrt(q));
-      const amb2 = reduce ? 0 : .002 * Math.sin(x * 23 - T * 1.9);
-      back[i] = X(level + ta * x + hgt[M - 1 - i] * .55 + hgt[i] * .3 + amb2 - band * Math.sqrt(q));
-      if (back[i] > front[i] - 1) back[i] = front[i] - 1;
-    }
-    // body of liquid
-    c.beginPath(); c.moveTo(X(XS[0]), back[0]);
-    for (let i = 1; i < M; i++) c.lineTo(X(XS[i]), back[i]);
-    c.lineTo(X(.5), X(1.2)); c.lineTo(X(-.5), X(1.2)); c.closePath();
-    let g = c.createLinearGradient(0, X(level - .06), 0, X(CAV_BOT));
-    g.addColorStop(0, rgba(mix(col, WHITE, .12), .9)); g.addColorStop(.35, rgba(col, .88)); g.addColorStop(1, rgba(deep, .93));
-    c.fillStyle = g; c.fill();
-    // everything below paints only where liquid already is
-    c.globalCompositeOperation = "source-atop";
-    g = c.createLinearGradient(X(-.32), 0, X(.32), 0);
-    g.addColorStop(0, rgba(deeper, .8)); g.addColorStop(.07, rgba(deeper, .1)); g.addColorStop(.13, rgba(light, .6)); g.addColorStop(.19, rgba(col, 0));
-    g.addColorStop(.62, rgba(col, 0)); g.addColorStop(.8, rgba(deep, .45)); g.addColorStop(.92, rgba(light, .45)); g.addColorStop(.96, rgba(deeper, .5)); g.addColorStop(1, rgba(deeper, .85));
-    c.fillStyle = g; c.fillRect(X(-.4), X(level - .2), X(.8), X(1.2));
-    c.lineWidth = Math.max(1, X(.005));
-    for (let k = 0; k < 6; k++) {
-      const y0 = level + .07 + k * .075; if (y0 > CAV_BOT) break;
-      c.strokeStyle = rgba(light, .14 + .07 * Math.sin(T * 1.3 + k * 2));
-      c.beginPath();
-      for (let x = -.32; x <= .33; x += .02) { const yy = y0 + .012 * Math.sin(x * 14 + T * (1.1 + k * .17) + k) + .006 * Math.sin(x * 37 - T * 2 + k); x === -.32 ? c.moveTo(X(x), X(yy)) : c.lineTo(X(x), X(yy)); }
-      c.stroke();
-    }
-    g = c.createLinearGradient(X(-.3), X(level), X(.2), X(CAV_BOT));
-    g.addColorStop(0, rgba(WHITE, 0)); g.addColorStop(.42, rgba(WHITE, .12)); g.addColorStop(.55, rgba(WHITE, 0));
-    c.fillStyle = g; c.fillRect(X(-.5), X(level - .2), X(1), X(1.2));
-    for (const b of bubbles) {
-      const px = X(b.x + Math.sin(b.w) * .006), py = X(b.y), pr = Math.max(1, X(b.r));
-      c.beginPath(); c.arc(px, py, pr, 0, 7); c.fillStyle = rgba(light, .3); c.fill();
-      c.lineWidth = 1; c.strokeStyle = rgba(WHITE, .6); c.stroke();
-      c.beginPath(); c.arc(px - pr * .35, py - pr * .35, pr * .3, 0, 7); c.fillStyle = rgba(WHITE, .85); c.fill();
-    }
-    c.globalCompositeOperation = "source-over";
-    // surface seen from slightly above
-    c.beginPath(); c.moveTo(X(XS[0]), back[0]); for (let i = 1; i < M; i++) c.lineTo(X(XS[i]), back[i]);
-    for (let i = M - 1; i >= 0; i--) c.lineTo(X(XS[i]), front[i]); c.closePath();
-    g = c.createLinearGradient(0, X(level - band), 0, X(level + bow));
-    g.addColorStop(0, rgba(mix(col, WHITE, .7), .96)); g.addColorStop(1, rgba(mix(col, WHITE, .3), .92));
-    c.fillStyle = g; c.fill();
-    c.lineWidth = 1.5; c.strokeStyle = rgba(WHITE, .8);
-    c.beginPath(); for (let i = 0; i < M; i++) i ? c.lineTo(X(XS[i]), front[i]) : c.moveTo(X(XS[i]), front[i]); c.stroke();
-    c.lineWidth = 1; c.strokeStyle = rgba(WHITE, .4);
-    c.beginPath(); for (let i = 0; i < M; i++) i ? c.lineTo(X(XS[i]), back[i]) : c.moveTo(X(XS[i]), back[i]); c.stroke();
-    // keep it inside the cavity
-    c.globalCompositeOperation = "destination-in"; c.fillStyle = "#000"; c.fill(pInner);
-    c.globalCompositeOperation = "source-over";
-    return true;
-  }
-
-  function drawBody(T, col, light, deep, deeper, level, fillAmt) {
-    const c = bctx; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, bc.width, bc.height); local(c);
-    // back glass
-    let g = c.createLinearGradient(X(-BW), 0, X(BW), 0);
-    g.addColorStop(0, rgba(WHITE, .17)); g.addColorStop(.12, rgba(WHITE, .05)); g.addColorStop(.5, rgba(WHITE, .02)); g.addColorStop(.88, rgba(WHITE, .06)); g.addColorStop(1, rgba(WHITE, .15));
-    c.fillStyle = g; c.fill(pOuter);
-    // light carried through the thick walls and base slab
-    const lv = clamp(level, 0, CAV_BOT - .01);
-    g = c.createLinearGradient(0, 0, 0, X(1));
-    g.addColorStop(0, rgba(col, 0)); g.addColorStop(lv, rgba(col, 0));
-    g.addColorStop(Math.min(.79, lv + .04), rgba(col, .16 * fillAmt)); g.addColorStop(CAV_BOT - .005, rgba(deep, .22 * fillAmt));
-    g.addColorStop(CAV_BOT + .01, rgba(BLACK, .1)); g.addColorStop(.86, rgba(col, .08 * fillAmt)); g.addColorStop(.9, rgba(light, .42 * fillAmt));
-    g.addColorStop(.935, rgba(col, .06 * fillAmt)); g.addColorStop(.975, rgba(WHITE, .04)); g.addColorStop(1, rgba(light, .5 * fillAmt));
-    c.fillStyle = g; c.fill(pOuter);
-    c.fillStyle = rgba(BLACK, .24); c.fill(pInner);
-    if (drawLiquid(T, col, light, deep, deeper, level)) { c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(lc, 0, 0); }
-    c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(fc, 0, 0);
-  }
-
-  function metal(c, x0, y0, w, h, r) {
-    const mg = c.createLinearGradient(X(x0), 0, X(x0 + w), 0);
-    mg.addColorStop(0, rgba(METAL[0])); mg.addColorStop(.25, rgba(METAL[2])); mg.addColorStop(.45, rgba(METAL[1])); mg.addColorStop(.7, rgba(METAL[2])); mg.addColorStop(1, rgba(METAL[0]));
-    c.fillStyle = mg; c.beginPath(); c.roundRect ? c.roundRect(X(x0), X(y0), X(w), X(h), X(r)) : c.rect(X(x0), X(y0), X(w), X(h)); c.fill();
-  }
-  const capIntroSide = v => Math.max(0, v);
-  function drawCap(c, col, light, capLift, capSide, capEnd = 0) {
-    const lift = capLift * .42, side = capSide * (mobile ? .42 : .55);
-    const cb = -.085 - lift, ct = -.47 - lift, ch = .07;
-    const top = x => ct + ch * clamp((Math.abs(x) - .1) / .05, 0, 1);
-    c.save(); c.translate(X(side), X(-capIntroSide(capSide) * .05 + capEnd * .16)); c.rotate(capSide * .35);
-    const outline = () => { c.beginPath(); c.moveTo(X(-.15), X(cb)); c.lineTo(X(.15), X(cb)); c.lineTo(X(.15), X(ct + ch)); c.lineTo(X(.1), X(ct)); c.lineTo(X(-.1), X(ct)); c.lineTo(X(-.15), X(ct + ch)); c.closePath(); };
-    outline(); c.fillStyle = rgba(mix(NIGHT, col, .42), .94); c.fill();
-    const facets = [[-.15, -.1, .2], [-.1, -.04, .05], [-.04, .04, .12], [.04, .1, .025], [.1, .15, .15]];
-    for (const [a, b, al] of facets) {
-      c.beginPath(); c.moveTo(X(a), X(cb)); c.lineTo(X(b), X(cb)); c.lineTo(X(b), X(top(b))); c.lineTo(X(a), X(top(a))); c.closePath();
-      c.fillStyle = rgba(WHITE, al); c.fill();
-    }
-    outline();
-    let g = c.createLinearGradient(0, X(ct), 0, X(cb));
-    g.addColorStop(0, rgba(WHITE, .14)); g.addColorStop(.12, rgba(BLACK, .05)); g.addColorStop(.72, rgba(col, 0)); g.addColorStop(1, rgba(light, .6));
-    c.fillStyle = g; c.fill();
-    c.strokeStyle = rgba(WHITE, .3); c.lineWidth = 1;
-    for (const x of [-.1, -.04, .04, .1]) { c.beginPath(); c.moveTo(X(x), X(top(x))); c.lineTo(X(x), X(cb)); c.stroke(); }
-    c.beginPath(); c.moveTo(X(-.15), X(ct + ch)); c.lineTo(X(.15), X(ct + ch)); c.strokeStyle = rgba(WHITE, .22); c.stroke();
-    g = c.createLinearGradient(0, X(ct + .1), 0, X(cb - .04));
-    g.addColorStop(0, rgba(WHITE, 0)); g.addColorStop(.3, rgba(WHITE, .6)); g.addColorStop(1, rgba(WHITE, 0));
-    c.fillStyle = g; c.fillRect(X(-.138), X(ct + .1), X(.012), X(cb - ct - .14));
-    outline(); c.strokeStyle = rgba(WHITE, .5); c.lineWidth = 1.2; c.stroke();
-    c.restore();
-  }
-
-  const shadowSprite = document.createElement("canvas"), causticSprite = document.createElement("canvas");
-  shadowSprite.width = shadowSprite.height = 128; causticSprite.width = causticSprite.height = 128;
-  (() => { const k = shadowSprite.getContext("2d"), g = k.createRadialGradient(64, 64, 0, 64, 64, 64);
-    g.addColorStop(0, rgba(BLACK, .62)); g.addColorStop(.5, rgba(BLACK, .3)); g.addColorStop(1, rgba(BLACK, 0)); k.fillStyle = g; k.fillRect(0, 0, 128, 128); })();
-  const cctx = causticSprite.getContext("2d");
-  function paintCaustic(col, light, T) {
-    const k = cctx; k.clearRect(0, 0, 128, 128);
-    const g = k.createRadialGradient(64, 64, 0, 64, 64, 64);
-    g.addColorStop(0, rgba(light, .55)); g.addColorStop(.3, rgba(col, .32)); g.addColorStop(1, rgba(col, 0));
-    k.fillStyle = g; k.fillRect(0, 0, 128, 128);
-    k.strokeStyle = rgba(light, .16); k.lineWidth = 1.5;
-    for (let i = 0; i < 3; i++) { const rr = 64 * (.25 + i * .18 + .04 * Math.sin(T * 2 + i)); k.beginPath(); k.arc(66, 64, rr, 0, 7); k.stroke(); }
-  }
-
-  function draw(T, col, level, introFill, capLift, capSide, capEnd) {
-    const c = ctx; c.setTransform(DPR, 0, 0, DPR, 0, 0); c.clearRect(0, 0, W, H);
-    const light = mix(col, WHITE, .45), deep = mix(col, BLACK, .45), deeper = mix(col, BLACK, .7);
-    const bob = reduce ? 0 : Math.sin(T * 1.1) * .012 * S;
-    const pivotY = BY + .38 * S + bob;
-    const floorY = BY + 1.1 * S;
-    const fillAmt = clamp(1 - (level - LFULL) / (LEMPTY - LFULL), 0, 1);
-
-    // floor: shadow + coloured caustic thrown through the liquid (small sprites, stretched flat)
-    const sh = 1 - bob / S * 4;
-    c.globalAlpha = clamp(sh, .6, 1);
-    c.drawImage(shadowSprite, BX - .5 * S, floorY - .06 * S, S, .12 * S);
-    const cxo = .2 * S - phi * S * .6, cw = .46 * S;
-    paintCaustic(col, light, T);
-    c.globalAlpha = fillAmt; c.globalCompositeOperation = "lighter";
-    c.drawImage(causticSprite, BX + cxo - cw, floorY - cw * .14, cw * 2, cw * .28);
-    c.globalAlpha = 1; c.globalCompositeOperation = "source-over";
-
-    // bottle frame
-    c.save();
-    c.translate(BX, pivotY); c.rotate(phi); c.translate(0, -.38 * S);
-    if (introFill > 0 && introFill < 1) {
-      const sw = X(.016) * (introFill > .88 ? (1 - introFill) / .12 : 1);
-      const yTop = -BY - 40, yBot = X(level) + 4;
-      c.fillStyle = rgba(mix(col, WHITE, .25), .92);
-      c.beginPath();
-      for (let y = yTop; y <= yBot; y += 10) c.lineTo(-sw / 2 + Math.sin(y * .05 + T * 18) * 1.2, y);
-      for (let y = yBot; y >= yTop; y -= 10) c.lineTo(sw / 2 + Math.sin(y * .05 + T * 18) * 1.2, y);
-      c.closePath(); c.fill();
-      c.fillStyle = rgba(WHITE, .55); c.fillRect(-sw * .2, yTop, sw * .18, yBot - yTop);
-    }
-    drawBody(T, col, light, deep, deeper, level, fillAmt);
-    c.drawImage(bc, X(BOX.x0), X(BOX.y0), X(BOX.w), X(BOX.h));
-    // atomiser (seen when the cap lifts), collar, cap
-    metal(c, -.018, -.175, .036, .08, .004);
-    metal(c, -.045, -.25, .09, .08, .018);
-    c.fillStyle = rgba(BLACK, .7); c.beginPath(); c.arc(X(.045), X(-.215), Math.max(1.2, X(.007)), 0, 7); c.fill();
-    metal(c, -.108, -.105, .216, .085, .012);
-    c.fillStyle = rgba(BLACK, .25); c.fillRect(X(-.108), X(-.03), X(.216), X(.008));
-    drawCap(c, col, light, capLift, capSide, capEnd);
-    c.restore();
-
-    // mist (world space)
-    if (mist.length) {
-      c.save(); c.globalCompositeOperation = "screen";
-      for (const m of mist) {
-        const a = m.a * (1 - m.age / m.life); if (a <= 0) continue;
-        const gr = c.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.r);
-        gr.addColorStop(0, rgba(light, a)); gr.addColorStop(1, rgba(light, 0));
-        c.fillStyle = gr; c.beginPath(); c.arc(m.x, m.y, m.r, 0, 7); c.fill();
-      }
-      c.restore();
-    }
-  }
-
-  function nozzleWorld() {
-    const lx = .05 * S, ly = (-.215 - .38) * S;
-    const cs = Math.cos(phi), sn = Math.sin(phi);
-    return [BX + lx * cs - ly * sn, BY + .38 * S + lx * sn + ly * cs, phi];
-  }
-  function puff() {
-    const [nx, ny, a] = nozzleWorld();
-    for (let k = 0; k < 40; k++) {
-      const sp = (2.5 + Math.random() * 8) * (S / 300), ang = a + (Math.random() - .5) * .55 - .1;
-      mist.push({ x: nx, y: ny, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, r: (3 + Math.random() * 6) * (S / 300), a: .05 + Math.random() * .07, age: 0, life: 60 + Math.random() * 60 });
-    }
-    hiss();
-  }
-
-  /* ---------- HUD ---------- */
-  const el = { ghost: $("#ghost"), caption: $("#caption"), tier: $("#hudTier"), note: $("#hudNote"), smell: $("#hudSmell"), clock: $("#hudClock"), phase: $("#hudPhase"), dots: $$("#hudDots i"), tf: [$("#tf0"), $("#tf1"), $("#tf2")], cue: $("#cue"), end: $("#heroEnd") };
-  const TF = [[2, 28], [31, 57], [60, 86]];
-  let hudKey = "", lastClock = "", lastCaption = -2, lastGhost = "";
-  const fmtMin = m => m < 60 ? `${Math.round(m)} min` : `${Math.floor(m / 60)} h ${String(Math.round(m % 60)).padStart(2, "0")} min`;
-  function setGhost(txt) {
-    if (txt === lastGhost) return; lastGhost = txt;
-    el.ghost.classList.add("swap"); el.ghost.textContent = txt;
-    el.ghost.style.fontSize = ""; const gw = el.ghost.offsetWidth, maxW = W * .96;
-    if (gw > maxW) el.ghost.style.fontSize = (parseFloat(getComputedStyle(el.ghost).fontSize) * maxW / gw) + "px";
-    void el.ghost.offsetWidth; el.ghost.classList.remove("swap");
-  }
-  function updateHud(inf, col, introFill) {
-    const root = stage.style;
-    root.setProperty("--note", rgba(col)); root.setProperty("--note-light", rgba(mix(col, WHITE, .35)));
-    let key;
-    if (inf.stage === -1) {
-      key = introFill < 1 ? "fill" : "intro";
-      if (key !== hudKey) {
-        el.tier.textContent = introFill < 1 ? {{hud.filling|jsd}} : {{product.type|jsd}};
-        el.note.textContent = {{product.short|jsd}}; el.smell.textContent = {{$.introSmell|jsd}};
-        el.phase.textContent = {{hud.beforePhase|jsd}};
-      }
-      setGhost({{product.name|plain|jsd}});
-    } else if (inf.stage === 3) {
-      key = "end";
-      if (key !== hudKey) { el.tier.textContent = {{hud.end.tier|jsd}}; el.note.textContent = {{hud.end.note|jsd}}; el.smell.textContent = {{hud.end.smell|jsd}}; el.phase.textContent = {{hud.end.phase|jsd}}; }
-      setGhost({{hud.end.note|jsd}});
-    } else {
-      const n = NOTES[inf.idx]; key = "n" + inf.idx;
-      if (key !== hudKey) {
-        el.tier.textContent = `${TIERS[inf.tier].name} · ${inf.idx % 3 + 1} of 3`;
-        el.note.textContent = n.name; el.smell.textContent = n.hud;
-        el.phase.textContent = `${TIERS[inf.tier].short} · ${TIERS[inf.tier].range}`;
-      }
-      setGhost(n.name);
-    }
-    hudKey = key;
-    const ck = introFill < 1 && inf.stage === -1 ? `${Math.round(introFill * {{$.featuredMl}})} ml` : (inf.stage === 3 ? {{hud.end.clock|jsd}} : fmtMin(inf.minutes));
-    if (ck !== lastClock) { el.clock.textContent = ck; lastClock = ck; }
-    el.dots.forEach((d, i) => { d.className = inf.stage === -1 ? "" : (i < inf.idx ? "on" : i === inf.idx ? (inf.stage === 3 ? "on" : "now") : ""); });
-    for (let t = 0; t < 3; t++) {
-      const fr = inf.stage === -1 ? 0 : (t < inf.tier ? 1 : t === inf.tier ? inf.tierFrac : 0);
-      const [y0, y1] = TF[t], h = (y1 - y0) * fr;
-      el.tf[t].setAttribute("y", (y1 - h).toFixed(2)); el.tf[t].setAttribute("height", h.toFixed(2));
-    }
-    const capIdx = inf.stage;
-    if (capIdx !== lastCaption) {
-      lastCaption = capIdx;
-      el.caption.innerHTML = capIdx === -1 ? {{hero.caption|rich|jsd}}
-        : capIdx === 3 ? {{hud.end.caption|rich|jsd}}
-        : TIERS[capIdx].caption;
-      el.cue.hidden = capIdx !== -1;
-      el.end.hidden = capIdx !== 3;
-    }
-  }
-
-  /* ---------- loop ---------- */
-  const t0 = performance.now(); let last = t0;
-  const papers = $$(".paper"), nav = $(".nav"); let navPaper = false;
-  function heroP() {
-    const r = hero.getBoundingClientRect(), span = r.height - innerHeight;
-    return clamp(-r.top / Math.max(1, span), 0, 1);
-  }
-  function frame(now) {if((window.__gov||(window.__gov=(()=>{const T=matchMedia('(pointer:coarse)').matches;let ly=-1,ls=-1e9,lt=-1e9;return n=>{if(!T)return false;const y=scrollY;if(y!==ly){ly=y;ls=n;}if(n-ls<600){lt=n;return false;}if(n-lt<50)return true;lt=n;return false;};})()))(now)){requestAnimationFrame(frame);return;}
-    const dt = Math.min(50, now - last); last = now;
-    const f = dt / 16.667, T = (now - t0) / 1000;
-    const sy = window.scrollY; sv += ((sy - lastSY) / Math.max(.3, f) - sv) * .25; lastSY = sy;
-    const p = heroP();
-    const fl = Math.min(250, now - (frame.prev || now)) / 16.667; frame.prev = now;
-    pS = reduce ? p : pS + (p - pS) * (1 - Math.pow(.88, fl));
-    const inf = info(pS);
-    const col = liquidColor(inf.u);
-    const introFill = reduce ? 1 : clamp((T - .5) / 2.6, 0, 1);
-    const level = lerp(LEMPTY, LFULL, easeOut(introFill));
-    const capIntro = reduce ? 0 : 1 - easeInOut(clamp((T - 3.0) / 1, 0, 1));
-    const capEnd = easeInOut(smooth(.9, .955, pS));
-    const capLift = Math.max(capIntro * .55, capEnd * .1);
-    const capSide = capIntro - capEnd * .8;
-    stepPhysics(f, T, level, introFill);
-    // bubbles rise
-    for (let i = bubbles.length - 1; i >= 0; i--) {
-      const b = bubbles[i]; b.y -= b.vy * f; b.w += .1 * f;
-      if (b.y < level + Math.tan(alpha) * b.x - .005 || b.y > CAV_BOT) bubbles.splice(i, 1);
-    }
-    // mist
-    if (!reduce && capEnd > .97 && now - lastPuff > 1700) { lastPuff = now; puff(); }
-    if (pS < .88) mist.length = 0;
-    for (let i = mist.length - 1; i >= 0; i--) {
-      const m = mist[i]; m.age += f; m.x += m.vx * f; m.y += m.vy * f; m.vx *= Math.pow(.95, f); m.vy = m.vy * Math.pow(.95, f) + .02 * f; m.r += .7 * f * (S / 300);
-      if (m.age > m.life) mist.splice(i, 1);
-    }
-    let onPaper = false;
-    for (const pe of papers) { const pr = pe.getBoundingClientRect(); if (pr.top <= 36 && pr.bottom > 36) onPaper = true; }
-    if (onPaper !== navPaper) { navPaper = onPaper; nav.classList.toggle("on-paper", onPaper); }
-    const r = hero.getBoundingClientRect();
-    if (r.bottom > 0 && r.top < innerHeight) { draw(T, col, level, introFill, capLift, capSide, capEnd); updateHud(inf, col, introFill); }
-    requestAnimationFrame(frame);
-  }
-
-  stage.addEventListener("pointermove", e => { if (e.pointerType === "mouse") ptrX = clamp((e.clientX / W - .5) * 2, -1, 1); });
-  stage.addEventListener("pointerleave", () => { ptrX = 0; });
-  cv.addEventListener("pointerdown", e => {
-    const rr = cv.getBoundingClientRect(), x = e.clientX - rr.left, y = e.clientY - rr.top;
-    const lx = (x - BX) / S, ly = (y - BY) / S;
-    if (Math.abs(lx) < .45 && ly > -.6 && ly < 1.1) {
-      impulse(clamp(lx, -.3, .3), .05, .01);
-      phiV += (lx < 0 ? -1 : 1) * .02;
-      spawnBubbles(16, clamp(lx, -.25, .25), .12, .6);
-      ting();
-      if (pS > .94) puff();
-    }
-  });
-  window.addEventListener("deviceorientation", e => {
-    if (e.gamma == null) return; devSeen = true;
-    devTilt = clamp(e.gamma / 60, -1, 1) * .5;
-  });
-  addEventListener("resize", () => { resize(); });
-  if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(stage);
-  resize();
-  requestAnimationFrame(frame);
 
   /* ---------- notes explorer ---------- */
   const pyr = $("#pyr");
@@ -1156,6 +747,7 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
   $("#rUse").addEventListener("click", () => { size = rec.size; spraysIn.value = rec.sprays; daysIn.value = rec.days; renderCalc(); });
   $("#rReset").addEventListener("click", () => { ans.fill(null); step = 0; renderQ(); });
   renderQ();
+  window.__halc = 1;
 })();
 </script>
 

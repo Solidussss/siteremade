@@ -2,6 +2,7 @@
 // bottle label line) and the rules the schema can't express (timeline order, concentration range, note shares, word
 // widths in the hero title). Runs at build time only.
 'use strict';
+const film = require('../../engine/film');
 const ROWS = [
   { key: 'cologne', name: 'Cologne', lo: 2, hi: 5, style: 'left:6.67%;width:10%', range: '2–5%' },
   { key: 'toilette', name: 'Toilette', lo: 5, hi: 15, style: 'left:16.67%;width:33.33%', range: '5–15%' },
@@ -14,6 +15,7 @@ function derive(c, ctx) {
   const cur = c.locale.currency, f = c.sizes.items[FEATURED];
   const total = f.ml * 10, weeks = total / (3 * 5), months = weeks / 4.345; // the calculator's opening state: 3 sprays, 5 days
   return {
+    film: film.derive(c, null, [230, 160, 80]),
     featuredMl: f.ml,
     featuredPrice: cur + f.price,
     introSmell: `${c.product.concentration}% concentrate · ${c.product.longevity} on skin`,
