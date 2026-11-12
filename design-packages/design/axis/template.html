@@ -1,11 +1,13 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>{{business.name}}</title>
+<meta name="description" content="{{hero.lede|attr}}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fragment+Mono&display=swap" rel="stylesheet">
 <style>
-/* Layout: a physiotherapy clinic. One pinned recovery measured in degrees: a joint drawn in line, bending further at
-   each stage on a goniometer while pain falls and strength returns; then what a patient needs: where it hurts and what
+/* Layout: a physiotherapy clinic. The real treatment plays as you scroll (the clinic's own video or photos) over an
+   instrument cluster along the bottom: a goniometer whose needle bends further at each stage toward the goal, beside a
+   chart where pain falls and strength returns; then what a patient needs: where it hurts and what
    helps, treatments and prices, and a slot with a practitioner. */
 :root{
   color-scheme:light;
@@ -58,44 +60,69 @@ p{margin:0}
 @media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
 @media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:20px}}
 
-/* hero: the recovery */
-.hero{position:relative;height:540vh}
+/* hero: the real treatment, and the measurements along the bottom */
+.hero{position:relative;height:560vh}
 .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--paper)}
-#joint{position:absolute;inset:0;width:100%;height:100%;display:block}
-.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 104px);max-width:540px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
-.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(244,246,250,.96),rgba(244,246,250,.78) 55%,rgba(244,246,250,0));pointer-events:none}
-.hero h1{font-size:clamp(2.6rem,min(5.2vw,8.2vh),5rem)}
+.stage .poster,#film{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.stage .poster{object-fit:cover}
+.veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(244,246,250,.93) 0%,rgba(244,246,250,.7) 32%,rgba(244,246,250,0) 54%),linear-gradient(0deg,rgba(244,246,250,.6),rgba(244,246,250,0) 34%)}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 104px);max-width:560px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero h1{font-size:clamp(2.6rem,min(5vw,8vh),4.8rem)}
 .hero h1 em{font-style:normal;display:block;color:var(--accent-text)}
-.lede{color:var(--ink-2);max-width:44ch;font-size:clamp(16px,1.3vw,18px)}
+.lede{color:var(--ink-2);max-width:46ch;font-size:clamp(16px,1.3vw,18px)}
 .hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
-.chart{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(430px,calc(100% - 2*var(--gut)));padding:16px 18px;border-radius:16px;background:var(--sheet);box-shadow:0 22px 56px -28px rgba(16,24,40,.35),0 0 0 1px rgba(16,24,40,.05)}
-.chart .row{display:flex;justify-content:space-between;gap:10px;font:400 11px/1.2 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.chart .wk{color:var(--accent-text)}
-.chart h3{font-size:clamp(24px,2.3vw,30px);margin-top:10px}
-.chart p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.1em}
-.meter{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;border-radius:16px;background:var(--sheet);box-shadow:0 22px 56px -28px rgba(16,24,40,.35),0 0 0 1px rgba(16,24,40,.05);overflow:hidden}
-.meter div{padding:12px 16px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
-.meter div:nth-child(2n){border-right:0}
-.meter div:nth-child(n+3){border-bottom:0}
-.meter dt{font:400 10.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.meter dd{margin:6px 0 0;font:800 26px/1 var(--f-display);letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
-.meter dd small{font:400 12px var(--f-mono);color:var(--muted);margin-left:3px;letter-spacing:0}
-.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap}
-.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+.split .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.22em;margin-bottom:-.14em}
+.split .w{padding-right:.1em;margin-right:-.1em}
+.split .w>i{display:inline-block;font-style:normal;animation:wrise .9s cubic-bezier(.16,1,.3,1) both}
+@keyframes wrise{from{transform:translateY(108%)}}
+.hint{position:absolute;z-index:4;left:var(--gut);bottom:calc(30px + env(safe-area-inset-bottom,0px));font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:10px;pointer-events:none}
+.hint i{display:block;width:1px;height:22px;background:linear-gradient(var(--muted),transparent);animation:cue 1.6s ease-in-out infinite}
 @keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
+/* the cluster: what's happening, the goniometer, the chart */
+.clu{position:absolute;z-index:4;left:var(--gut);right:var(--gut);bottom:calc(18px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,330px) minmax(0,1fr);align-items:end;gap:14px;opacity:0;transform:translateY(20px);transition:opacity .5s,transform .6s cubic-bezier(.16,1,.3,1)}
+.clu.on{opacity:1;transform:none}
+.clu>div{background:rgba(255,255,255,.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:18px;box-shadow:0 0 0 1px rgba(16,24,40,.06),0 24px 50px -30px rgba(16,24,40,.45);padding:16px 18px}
+.clu .row{display:flex;justify-content:space-between;gap:10px;font:400 10.5px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.clu .row b{color:var(--accent-text);font-weight:400}
+.clu h3{font:800 clamp(24px,2.2vw,30px)/1.05 var(--f-display);letter-spacing:-.02em;margin-top:10px}
+.clu p{color:var(--ink-2);font-size:14.5px;margin-top:6px;min-height:4.4em}
+.gon{padding:14px 16px 12px!important;text-align:center}
+.gon svg{display:block;width:100%;height:auto;overflow:visible}
+.gon .sc{fill:none;stroke:var(--line);stroke-width:10;stroke-linecap:round}
+.gon .fl{fill:none;stroke:var(--accent);stroke-width:10;stroke-linecap:round}
+.gon .tk{stroke:rgba(16,24,40,.35);stroke-width:1.2}
+.gon .gl{stroke:var(--ease);stroke-width:2.5}
+.gon .gt{font:500 8px var(--f-mono);fill:var(--ease);letter-spacing:.06em;text-transform:uppercase}
+.gon .nd{stroke:var(--ink);stroke-width:3;stroke-linecap:round}
+.gon .hub{fill:var(--ink)}
+.gon .deg{font:800 28px var(--f-display);fill:var(--ink);letter-spacing:-.03em}
+.gon .lb{font:500 8.5px var(--f-mono);fill:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.trend .vals{display:flex;gap:22px;margin:0}
+.trend dt{font:400 10px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px}
+.trend dt i{width:10px;height:3px;border-radius:2px;background:var(--c)}
+.trend dd{margin:5px 0 0;font:800 24px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.trend dd small{font:400 11px var(--f-mono);color:var(--muted);margin-left:3px}
+.trend svg{display:block;width:100%;height:76px;margin-top:10px;overflow:visible}
+.trend .ln{fill:none;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.trend .ln.pn{stroke:var(--pain)}.trend .ln.st{stroke:var(--ease)}
+.trend .ghost{opacity:.18}
+.trend .mk{stroke:rgba(16,24,40,.35);stroke-width:1;stroke-dasharray:2 3;vector-effect:non-scaling-stroke}
+@media (max-width:980px){.clu{grid-template-columns:minmax(0,1fr) minmax(220px,260px)}.clu .say{grid-column:1 / -1;order:-1}}
 @media (max-width:820px){
-  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 80px);max-width:none;right:var(--gut);gap:14px}
+  .veil{background:linear-gradient(180deg,rgba(244,246,250,.93) 0%,rgba(244,246,250,.66) 36%,rgba(244,246,250,0) 52%),linear-gradient(0deg,rgba(244,246,250,.85),rgba(244,246,250,0) 46%)}
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 84px);max-width:none;right:var(--gut);gap:14px}
   .hero .acts{display:none}
-  .meter{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:repeat(4,minmax(0,1fr));bottom:calc(200px + env(safe-area-inset-bottom,0px))}
-  .meter div{padding:9px 10px;border-bottom:0}
-  .meter div:nth-child(2n){border-right:1px solid var(--line)}
-  .meter div:last-child{border-right:0}
-  .meter dt{font-size:8.5px;letter-spacing:.03em}
-  .meter dd{font-size:clamp(17px,5vw,22px)}
-  .meter dd small{display:none}
-  .chart{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 16px}
-  .chart p{font-size:14px;min-height:4.4em}
   .hint{display:none}
+  .clu{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));grid-template-columns:1fr 1fr;gap:8px}
+  .clu .say{grid-column:1 / -1}
+  .clu>div{padding:12px 14px;border-radius:14px}
+  .clu h3{font-size:22px;margin-top:6px}
+  .clu p{font-size:13.5px;min-height:3em}
+  .trend .vals{gap:12px}
+  .trend dd{font-size:19px}
+  .trend svg{height:54px}
+  .gon .deg{font-size:30px}
+  .gon .lb{display:none}
 }
 
 /* sections */
@@ -199,9 +226,11 @@ footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut)
 </nav>
 
 <main>
-<section class="hero" id="top" aria-label="A recovery measured stage by stage, scroll to run it">
+<section class="hero" id="top" aria-label="A recovery measured stage by stage; scroll to run it">
   <div class="stage" id="stage">
-    <canvas id="joint" aria-hidden="true"></canvas>
+{{#if $.film.poster}}    <img class="poster" src="{{$.film.poster|attr}}" alt="" aria-hidden="true">
+{{/if}}    <canvas id="film" role="img" aria-label="Treatment at {{brand.name|attr}}: hands-on work, then exercises to rebuild strength"></canvas>
+    <div class="veil" aria-hidden="true"></div>
     <div class="hero-copy" id="heroCopy">
       <p class="eyebrow">{{hero.eyebrow}}</p>
       <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
@@ -209,16 +238,24 @@ footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut)
       <div class="acts"><a class="btn" href="#book">{{hero.cta}}</a><a class="btn ghost" href="#where">{{hero.cta2}}</a></div>
     </div>
     <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
-    <dl class="meter" id="meter" aria-live="off">
-      <div><dt>{{job.measure}}</dt><dd id="mRange">0<small>°</small></dd></div>
-      <div><dt>Pain</dt><dd id="mPain">—<small>/ 10</small></dd></div>
-      <div><dt>Strength</dt><dd id="mStrength">—<small>%</small></dd></div>
-      <div><dt>Sessions</dt><dd id="mSessions">0</dd></div>
-    </dl>
-    <div class="chart" id="chart" aria-live="polite">
-      <div class="row"><span>Stage <b id="cNum">1</b> of 6</span><span class="wk" id="cWhen">{{stages.0.when}}</span></div>
-      <h3 id="cTitle">{{stages.0.n}}</h3>
-      <p id="cText">{{stages.0.c}}</p>
+    <div class="clu" id="clu">
+      <div class="say" aria-live="polite"><div class="row"><span>Stage <span id="cNum">1</span> of 6 · {{job.finding}}</span><b id="cWhen">{{stages.0.when}}</b></div><h3 id="cTitle">{{stages.0.n}}</h3><p id="cText">{{stages.0.c}}</p></div>
+      <div class="gon" aria-hidden="true">
+        <svg viewBox="0 0 200 146"><path class="sc" d="M18 100A82 82 0 0 1 182 100"/><path class="fl" id="gFill" d="M18 100A82 82 0 0 1 182 100" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><g id="gTicks"></g>
+          <line class="gl" id="gGoal" x1="0" y1="0" x2="0" y2="0"/><text class="gt" id="gGoalT" text-anchor="middle">{{job.goalLabel}}</text>
+          <line class="nd" id="gNeedle" x1="100" y1="100" x2="30" y2="100"/><circle class="hub" cx="100" cy="100" r="5"/>
+          <text class="deg" id="mRange" x="100" y="132" text-anchor="middle">0°</text><text class="lb" x="100" y="146" text-anchor="middle">{{job.measure}} · {{job.joint}}</text></svg>
+      </div>
+      <div class="trend">
+        <dl class="vals" id="meter">
+          <div><dt><i style="--c:var(--pain)"></i>Pain</dt><dd id="mPain">—<small>/ 10</small></dd></div>
+          <div><dt><i style="--c:var(--ease)"></i>Strength</dt><dd id="mStrength">—<small>%</small></dd></div>
+          <div><dt>Sessions</dt><dd id="mSessions">0</dd></div>
+        </dl>
+        <svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true"><defs><clipPath id="trClip"><rect id="trRect" x="0" y="-5" width="0" height="50"/></clipPath></defs>
+          <polyline class="ln pn ghost" id="tPainG"/><polyline class="ln st ghost" id="tStrG"/>
+          <g clip-path="url(#trClip)"><polyline class="ln pn" id="tPain"/><polyline class="ln st" id="tStr"/></g><line class="mk" id="tMk" x1="0" y1="0" x2="0" y2="40"/></svg>
+      </div>
     </div>
   </div>
 </section>
@@ -308,180 +345,69 @@ footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut)
 (function(){
 "use strict";
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const TOUCH = matchMedia('(pointer:coarse)').matches;let gW=0,gH=0;
+const TOUCH = matchMedia('(pointer:coarse)').matches;
 const $ = s=>document.querySelector(s);
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
 const sm=t=>t*t*(3-2*t);
 const seg=(p,a,b)=>clamp((p-a)/(b-a));
 
-/* ============ THE RECOVERY (what the hero shows) ============ */
-// six stages: when, the angle measured, pain out of ten, strength against the other side, and sessions so far
+/* ============ THE RECOVERY ============ */
 const STAGES=[
 {{$.stagesJs|raw}}
 ];
-// the joint drawn ('knee', 'shoulder' or 'back'), the goal angle and what was found
 const JOB={joint:{{job.joint|js}},goal:{{job.goal}},finding:{{job.finding|js}}};
-const ACCENT='{{A:#4338CA}}';
-const PAIN='#E5484D', EASE='#12A594';
-
-/* ============ THE GONIOMETER ============ */
-// the fixed arm's direction, the moving arm's straight direction, and which way it turns (screen y points down);
-// the joint decides how the goniometer lies on the couch
-const KIND={
- knee:{fixed:Math.PI,start:0,turn:1,fixedLen:1.3,moveLen:1.2,ends:['hip','foot'],box:[-.6,1.55]},
- shoulder:{fixed:Math.PI/2,start:Math.PI/2,turn:-1,fixedLen:1.1,moveLen:1.25,ends:['hip','hand'],box:[-1.5,1.45]},
- back:{fixed:Math.PI/2,start:-Math.PI/2,turn:1,fixedLen:1.15,moveLen:1.2,ends:['foot','head'],box:[-1.55,1.3]}
-}[JOB.joint]||null;
-const J=KIND||{fixed:Math.PI,start:0,turn:1,fixedLen:1.3,moveLen:1.2,ends:['hip','foot'],box:[-.6,1.55]};
-const dirOf=a=>J.start+J.turn*a*Math.PI/180;
-const rgb=h=>{const n=parseInt(h.slice(1),16);return[n>>16&255,n>>8&255,n&255].join(',');};
-function rng(seed){return ()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-function rad(c,x,y,rx,ry,col){c.save();c.translate(x,y);c.scale(rx,ry);const g=c.createRadialGradient(0,0,0,0,0,1);g.addColorStop(0,col);g.addColorStop(1,col.replace(/[\d.]+\)$/,'0)'));c.fillStyle=g;c.beginPath();c.arc(0,0,1,0,7);c.fill();c.restore();}
-// a shadow on its own: the shape is drawn far away and only its shadow lands here
-function shadowOf(c,path,blur,dx,dy,col){const F=4000, m=c.getTransform();c.save();c.shadowColor=col;c.shadowBlur=blur*DPR;c.shadowOffsetX=m.a*F+dx*DPR;c.shadowOffsetY=m.b*F+dy*DPR;c.translate(-F,0);c.fillStyle='#000';c.fill(path);c.restore();}
-
-/* ============ MATERIALS (made once) ============ */
-function tile(n,draw){const c=document.createElement('canvas');c.width=c.height=n;draw(c.getContext('2d'),n);return c;}
-// the couch: a fine pebbled vinyl
-const VINYL=tile(160,(g,n)=>{const r=rng(3);for(let i=0;i<2600;i++){const x=r()*n,y=r()*n,s=.6+r()*1.3;g.fillStyle=r()<.5?`rgba(30,45,60,${.04+r()*.05})`:`rgba(255,255,255,${.08+r()*.1})`;g.beginPath();g.arc(x,y,s,0,7);g.fill();}});
-// the paper roll: soft creases and fibres
-const PAPER=tile(256,(g,n)=>{const r=rng(8);g.fillStyle='#FBFBF9';g.fillRect(0,0,n,n);
-  for(let i=0;i<9;i++){const x=r()*n,y=r()*n,a=r()*Math.PI,l=120+r()*160;g.save();g.translate(x,y);g.rotate(a);const k=g.createLinearGradient(0,-10,0,10);k.addColorStop(0,'rgba(120,130,140,0)');k.addColorStop(.42,`rgba(120,130,140,${.01+r()*.015})`);k.addColorStop(.58,`rgba(255,255,255,${.15+r()*.15})`);k.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=k;g.fillRect(-l/2,-10,l,20);g.restore();}
-  for(let i=0;i<700;i++){g.fillStyle=`rgba(140,145,150,${.02+r()*.035})`;g.fillRect(r()*n,r()*n,1+r()*2,.6);}});
-let vinylPat=null,paperPat=null;
-
-/* ============ GEOMETRY ============ */
-const cv=$('#joint'), ctx=cv.getContext('2d');
-let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null;
-// the joint sits where its drawing is centred: J.box is how far it reaches above and below, in dial radii
-function fit(ax,ay){const bh=J.box[1]-J.box[0];const R=Math.min((ax[1]-ax[0])/2.9,(ay[1]-ay[0])/bh);return{R,x:(ax[0]+ax[1])/2,y:(ay[0]+ay[1])/2-R*(J.box[0]+J.box[1])/2};}
-function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;vinylPat=paperPat=null;
-  const top=Math.max(70,H*.1), mt=$('#meter').getBoundingClientRect(), ch=$('#chart').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
-  if(mobile){LA=LB=fit([W*.03,W*.97],[top,mt.top-stg.top-12]);}
-  else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(mt.top,ch.top)-stg.top;
-    const side=fit([cr+20,W*.97],[H*.12,Math.min(H*.84,low-20)]), under=fit([W*.05,W*.95],[cb+24,low-20]);
-    LA=side.R>=under.R*.8?side:under;LB=fit([W*.06,W*.94],[top,Math.min(mt.top,ch.top-30)-stg.top-14]);}}
-
-/* ============ DRAWING ============ */
-// the treatment couch, and a strip of paper roll down it under the goniometer
-function couch(c){const {x,R}=c;
-  const g=ctx.createLinearGradient(0,0,W,H);g.addColorStop(0,'#E4EAEE');g.addColorStop(1,'#D3DCE2');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  if(!vinylPat){vinylPat=ctx.createPattern(VINYL,'repeat');}ctx.fillStyle=vinylPat;ctx.fillRect(0,0,W,H);
-  // a padded seam either side of the paper
-  const pw=R*3.7;[-1,1].forEach(s=>{const sx=x+s*(pw/2+R*.55);const k=ctx.createLinearGradient(sx-R*.12,0,sx+R*.12,0);k.addColorStop(0,'rgba(255,255,255,0)');k.addColorStop(.42,'rgba(255,255,255,.55)');k.addColorStop(.5,'rgba(60,80,95,.22)');k.addColorStop(.58,'rgba(255,255,255,.4)');k.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=k;ctx.fillRect(sx-R*.12,0,R*.24,H);
-    ctx.save();ctx.strokeStyle='rgba(60,80,95,.28)';ctx.lineWidth=1.2;ctx.setLineDash([R*.035,R*.025]);ctx.beginPath();ctx.moveTo(sx+s*R*.05,0);ctx.lineTo(sx+s*R*.05,H);ctx.stroke();ctx.restore();});
-  // the paper: a soft shadow under each edge, then the sheet, its creases and a perforated tear line
-  const P=new Path2D();P.rect(x-pw/2,-10,pw,H+20);
-  shadowOf(ctx,P,R*.05,0,R*.012,'rgba(40,60,75,.22)');
-  if(!paperPat){paperPat=ctx.createPattern(PAPER,'repeat');}
-  ctx.save();ctx.clip(P);ctx.fillStyle=paperPat;const sc=Math.max(.6,R/260);ctx.translate(x-pw/2,0);ctx.scale(sc,sc);ctx.fillRect(0,-10/sc,pw/sc,(H+20)/sc);ctx.restore();
-  ctx.save();ctx.clip(P);const ty=c.y+R*1.85;ctx.fillStyle='rgba(120,130,140,.35)';for(let px=x-pw/2+4;px<x+pw/2;px+=7){ctx.beginPath();ctx.arc(px,ty,1,0,7);ctx.fill();}
-    const e=ctx.createLinearGradient(x-pw/2,0,x+pw/2,0);e.addColorStop(0,'rgba(120,130,140,.12)');e.addColorStop(.04,'rgba(120,130,140,0)');e.addColorStop(.96,'rgba(120,130,140,0)');e.addColorStop(1,'rgba(120,130,140,.12)');ctx.fillStyle=e;ctx.fillRect(x-pw/2,0,pw,H);ctx.restore();}
-// the reading so far, pencilled on the paper at each visit
-function pencil(c,ghosts){const {x,y,R}=c;ghosts.forEach((a,i)=>{const d=dirOf(a), r=rng(40+i);ctx.save();ctx.lineCap='round';
-  for(let k=0;k<3;k++){ctx.strokeStyle=`rgba(70,75,85,${.18+r()*.12})`;ctx.lineWidth=.8+r()*.6;ctx.beginPath();const j=(r()-.5)*.012;ctx.moveTo(x+Math.cos(d+j)*R*1.2,y+Math.sin(d+j)*R*1.2);ctx.lineTo(x+Math.cos(d+j)*R*1.5,y+Math.sin(d+j)*R*1.5);ctx.stroke();}
-  ctx.fillStyle='rgba(70,75,85,.55)';ctx.font=`500 ${Math.max(9,Math.round(R*.05))}px "Fragment Mono",monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(Math.round(a)+'°',x+Math.cos(d)*R*1.58,y+Math.sin(d)*R*1.58);ctx.restore();});}
-// a clear acrylic part: faint tint, a bright edge and a darker inner edge, and its soft shadow on the paper
-function acrylic(path,R,tint){shadowOf(ctx,path,R*.035,R*.025,R*.04,'rgba(30,45,60,.2)');
-  ctx.fillStyle=tint||'rgba(214,226,234,.28)';ctx.fill(path);
-  ctx.save();ctx.clip(path);const g=ctx.createLinearGradient(0,0,W,H);g.addColorStop(0,'rgba(255,255,255,.22)');g.addColorStop(.5,'rgba(255,255,255,0)');g.addColorStop(1,'rgba(255,255,255,.12)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.restore();
-  ctx.strokeStyle='rgba(60,85,105,.42)';ctx.lineWidth=1.1;ctx.stroke(path);ctx.save();ctx.translate(-.8,-.8);ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=1.2;ctx.stroke(path);ctx.restore();}
-// printed ink: a hair of shadow below each mark, as if raised off the paper by the plastic
-function ink(R,draw){ctx.save();ctx.translate(R*.006,R*.009);ctx.globalAlpha*=.1;draw('rgba(20,30,40,1)');ctx.restore();draw(null);}
-function dial(c,angle,goal){const {x,y,R}=c, max=Math.max(goal+20,150), a0=dirOf(0), a1=dirOf(max), lo=Math.min(a0,a1), hi=Math.max(a0,a1);
-  // the head: a disc of clear acrylic
-  const D=new Path2D();D.arc(x,y,R*1.16,0,Math.PI*2);acrylic(D,R);
-  // the measured angle: the reading tinted onto the disc, and its arc printed in the clinic's colour
-  if(angle>0){const s=dirOf(0), e=dirOf(angle);ctx.fillStyle='{{A:rgba(67,56,202,.12)}}';ctx.beginPath();ctx.moveTo(x,y);ctx.arc(x,y,R*.9,Math.min(s,e),Math.max(s,e));ctx.closePath();ctx.fill();ctx.strokeStyle='{{A:rgba(67,56,202,.18)}}';ctx.lineWidth=1;ctx.stroke();}
-  ink(R,(sh)=>{
-    ctx.strokeStyle=sh||'rgba(18,28,44,.07)';ctx.lineWidth=R*.08;ctx.beginPath();ctx.arc(x,y,R*.98,lo,hi);ctx.stroke();
-    for(let d=0;d<=max;d+=2){const a=dirOf(d), big=d%10===0, r0=R*(big?.92:.95), r1=R*(d%30===0?1.12:big?1.06:1.02);ctx.strokeStyle=sh||(d%30===0?'rgba(18,28,44,.78)':'rgba(18,28,44,.5)');ctx.lineWidth=d%30===0?1.7:big?1.15:.7;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*r0,y+Math.sin(a)*r0);ctx.lineTo(x+Math.cos(a)*r1,y+Math.sin(a)*r1);ctx.stroke();
-      if(d%30===0){ctx.fillStyle=sh||'rgba(18,28,44,.7)';ctx.font=`500 ${Math.max(10,Math.round(R*.065))}px "Fragment Mono",monospace`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(d+'°',x+Math.cos(a)*R*.84,y+Math.sin(a)*R*.84);}}
-    if(angle>0){const s=dirOf(0), e=dirOf(angle);ctx.strokeStyle=sh||ACCENT;ctx.lineWidth=R*.08;ctx.lineCap='butt';ctx.beginPath();ctx.arc(x,y,R*.98,Math.min(s,e),Math.max(s,e));ctx.stroke();
-      const m=dirOf(angle/2);ctx.fillStyle=sh||ACCENT;ctx.font=`800 ${Math.round(R*.2)}px "Plus Jakarta Sans",sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(Math.round(angle)+'°',x+Math.cos(m)*R*.55,y+Math.sin(m)*R*.55);}});
-  // the maker's mark, small, as printed on real ones
-  ctx.fillStyle='rgba(18,28,44,.35)';ctx.font=`500 ${Math.max(8,Math.round(R*.038))}px "Fragment Mono",monospace`;ctx.textAlign='center';ctx.textBaseline='middle';const fa=dirOf(max/2)+Math.PI;ctx.fillText('360° · 1° GRADUATIONS',x+Math.cos(fa)*R*.62,y+Math.sin(fa)*R*.62);
-  ctx.textAlign='left';ctx.textBaseline='alphabetic';}
-// an arm: a long bar of acrylic with a centre line and a printed rule; the moving arm carries the reading's index line
-function arm(x,y,dir,len,w,R,index){const P=new Path2D(), nx=-Math.sin(dir)*w/2, ny=Math.cos(dir)*w/2, ex=x+Math.cos(dir)*len, ey=y+Math.sin(dir)*len;
-  P.moveTo(x+nx-Math.cos(dir)*w*.5,y+ny-Math.sin(dir)*w*.5);P.lineTo(ex+nx,ey+ny);P.arc(ex,ey,w/2,dir+Math.PI/2,dir-Math.PI/2,true);P.lineTo(x-nx-Math.cos(dir)*w*.5,y-ny-Math.sin(dir)*w*.5);P.arc(x-Math.cos(dir)*w*.5,y-Math.sin(dir)*w*.5,w/2,dir-Math.PI/2,dir+Math.PI/2,true);P.closePath();
-  acrylic(P,R,'rgba(206,222,232,.36)');
-  ink(R,(sh)=>{ctx.save();ctx.translate(x,y);ctx.rotate(dir);ctx.strokeStyle=sh||'rgba(18,28,44,.55)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(w*.7,0);ctx.lineTo(len-w*.3,0);ctx.stroke();
-    for(let s=w*.9, i=0;s<len-w*.2;s+=R*.04,i++){const h=i%5===0?w*.3:w*.17;ctx.lineWidth=i%5===0?1:.7;ctx.beginPath();ctx.moveTo(s,-w/2+1);ctx.lineTo(s,-w/2+1+h);ctx.stroke();}
-    if(index){ctx.strokeStyle=sh||'rgba(214,48,58,.9)';ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(R*.86,0);ctx.lineTo(R*1.14,0);ctx.stroke();}ctx.restore();});
-  return P;}
-// the steel rivet the arms turn on
-function rivet(x,y,w){const g=ctx.createRadialGradient(x-w*.18,y-w*.2,0,x,y,w*.5);g.addColorStop(0,'#FFFFFF');g.addColorStop(.35,'#C9D0D6');g.addColorStop(.8,'#7E8892');g.addColorStop(1,'#5C656E');
-  ctx.save();ctx.shadowColor='rgba(20,30,40,.35)';ctx.shadowBlur=w*.25*DPR;ctx.shadowOffsetX=w*.06*DPR;ctx.shadowOffsetY=w*.1*DPR;ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,w*.46,0,7);ctx.fill();ctx.restore();
-  ctx.strokeStyle='rgba(40,50,60,.5)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x,y,w*.2,0,7);ctx.stroke();ctx.fillStyle='rgba(30,40,50,.6)';ctx.beginPath();ctx.arc(x,y,w*.08,0,7);ctx.fill();}
-function scene(c,angle,pain,ghosts,find){const {x,y,R}=c, w=R*.2;
-  pencil(c,ghosts);
-  // where it hurts: warmth under the plastic, cooling as the pain goes
-  const pk=pain/10, col=pk>.15?rgb(PAIN):rgb(EASE);rad(ctx,x,y,R*(.3+.25*pk),R*(.3+.25*pk),`rgba(${col},${(.12+.42*pk).toFixed(3)})`);
-  arm(x,y,J.fixed,R*J.fixedLen,w,R,false);
-  dial(c,angle,JOB.goal);
-  arm(x,y,dirOf(angle),R*J.moveLen,w*.9,R,true);
-  rivet(x,y,w*.95);
-  ctx.fillStyle=pk>.15?PAIN:EASE;ctx.globalAlpha*=.85;ctx.beginPath();ctx.arc(x,y,w*.1,0,7);ctx.fill();ctx.globalAlpha/=.85;
-  // what was found: written on a sticky note stuck to the paper
-  if(find>0){ctx.save();ctx.globalAlpha*=find;const s=Math.max(12,Math.round(R*.075));ctx.font=`700 ${s}px "Plus Jakarta Sans",sans-serif`;const t=JOB.finding, tw=Math.max(ctx.measureText(t).width+s*1.6,s*7), th=s*3.2, oa=J.fixed+Math.PI-.35*J.turn;
-    const lx=clamp(x+Math.cos(oa)*R*1.55,tw/2+10,W-tw/2-10), ly=clamp(y+Math.sin(oa)*R*1.55,Math.max(70,H*.1)+th/2,H-th/2-10);
-    ctx.translate(lx,ly);ctx.rotate(-.04);const N=new Path2D();N.rect(-tw/2,-th/2,tw,th);shadowOf(ctx,N,s*.6,s*.12,s*.3,'rgba(40,40,20,.28)');
-    const g=ctx.createLinearGradient(0,-th/2,0,th/2);g.addColorStop(0,'#FFF3A6');g.addColorStop(.25,'#FFF6B8');g.addColorStop(1,'#F6E58A');ctx.fillStyle=g;ctx.fill(N);ctx.fillStyle='rgba(180,160,60,.18)';ctx.fillRect(-tw/2,-th/2,tw,th*.22);
-    ctx.fillStyle=PAIN;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,0,s*.2);ctx.restore();ctx.textAlign='left';ctx.textBaseline='alphabetic';}}
-
-// the goal: a strip of tape on the paper at the goal angle, with the goal printed on it
-function goalLabel(c,goal){const {x,y,R}=c, g=dirOf(goal), lx=x+Math.cos(g)*R*1.42, ly=y+Math.sin(g)*R*1.42;ctx.font=`700 ${Math.max(11,Math.round(R*.07))}px "Plus Jakarta Sans",sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';const t=`{{job.goalLabel|tl}} ${goal}°`, tw=ctx.measureText(t).width+14;
-  ctx.save();ctx.translate(lx,ly);ctx.rotate(-.06);const th=Math.max(22,R*.12), T=new Path2D();T.moveTo(-tw/2-6,-th/2);for(let i=0;i<=6;i++)T.lineTo(-tw/2-6+(i%2?2:0),-th/2+th*i/6);T.lineTo(tw/2+6,th/2);for(let i=6;i>=0;i--)T.lineTo(tw/2+6-(i%2?2:0),-th/2+th*i/6);T.closePath();
-  shadowOf(ctx,T,4,0,1.5,'rgba(20,60,55,.25)');ctx.fillStyle=`rgba(${rgb(EASE)},.92)`;ctx.fill(T);ctx.fillStyle='rgba(255,255,255,.14)';for(let i=-tw/2;i<tw/2;i+=4)ctx.fillRect(i,-th/2,1,th);
-  ctx.fillStyle='#FFFFFF';ctx.fillText(t,0,1);ctx.restore();ctx.textAlign='left';ctx.textBaseline='alphabetic';}
-
-function reached(c,goal,k){if(k<=0)return;const {x,y,R}=c, g=dirOf(goal), lx=x+Math.cos(g)*R*1.42, ly=y+Math.sin(g)*R*1.42, r=Math.max(18,R*.16)*(.6+.4*k);
-  const cx=clamp(x+Math.cos(g)*R*1.86,r+8,W-r-8), cy=clamp(y+Math.sin(g)*R*1.86,r+70,H-r-8);ctx.save();ctx.globalAlpha*=k;const D=new Path2D();D.arc(cx,cy,r,0,7);shadowOf(ctx,D,6,1,2.5,'rgba(20,60,55,.3)');
-  const gr=ctx.createRadialGradient(cx-r*.3,cy-r*.35,0,cx,cy,r);gr.addColorStop(0,`rgba(${rgb(EASE)},.85)`);gr.addColorStop(1,EASE);ctx.fillStyle=gr;ctx.fill(D);ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(cx,cy,r*.82,0,7);ctx.stroke();
-  ctx.strokeStyle='#FFFFFF';ctx.lineWidth=r*.16;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(cx-r*.38,cy+r*.02);ctx.lineTo(cx-r*.1,cy+r*.3);ctx.lineTo(cx+r*.4,cy-r*.28);ctx.stroke();ctx.restore();}
-
-/* ============ HUD ============ */
-let shown=-1;
-function hud(p,v){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});const s=STAGES[idx];
-  if(idx!==shown){shown=idx;$('#cNum').textContent=idx+1;$('#cTitle').textContent=s.n;$('#cText').textContent=s.c;$('#cWhen').textContent=s.when;}
-  $('#mRange').innerHTML=`${Math.round(v.angle)}<small>°</small>`;$('#mPain').innerHTML=`${Math.round(v.pain)}<small>/ 10</small>`;
-  $('#mStrength').innerHTML=`${Math.round(v.strength)}<small>%</small>`;$('#mSessions').textContent=v.sessions;}
-
-/* ============ FRAME ============ */
-const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
-let cur=0;const t0=performance.now();
 function values(p){// each stage moves from the last stage's numbers to its own
   let i=0;STAGES.forEach((s,k)=>{if(p>=s.w[0])i=k;});const s=STAGES[i], prev=STAGES[Math.max(0,i-1)], t=sm(seg(p,s.w[0],s.w[0]+(s.w[1]-s.w[0])*.7));
   const from=i===0?{angle:0,pain:s.pain,strength:s.strength}:prev;
   return{i,angle:lerp(from.angle,s.angle,i===0?sm(seg(p,.03,.11)):t),pain:lerp(from.pain,s.pain,t),strength:lerp(from.strength,s.strength,t),sessions:t>.5||i===0?s.sessions:prev.sessions};}
-function frame(p,time){ctx.setTransform(DPR,0,0,DPR,0,0);ctx.globalAlpha=1;
-  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
-  const c={x:lerp(LA.x,LB.x,m),y:lerp(LA.y,LB.y,m),R:lerp(LA.R,LB.R,m)};
-  const v=values(p), breathe=RM?0:Math.sin(time*2)*.6;
-  couch(c);
-  const ghosts=STAGES.slice(0,v.i).map(s=>s.angle).filter((a,j,arr)=>a>0&&arr.indexOf(a)===j);
-  goalLabel(c,JOB.goal);reached(c,JOB.goal,sm(seg(p,STAGES[STAGES.length-1].w[0]+.01,STAGES[STAGES.length-1].w[0]+.08)));
-  scene(c,v.angle+(v.i>0?breathe:0),v.pain,ghosts,sm(seg(p,.14,.2))*(1-sm(seg(p,.4,.46))));
-  // window light from the upper left, and the corners falling off
-  const lt=ctx.createLinearGradient(0,0,W*.8,H);lt.addColorStop(0,'rgba(255,255,255,.22)');lt.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=lt;ctx.fillRect(0,0,W,H);
-  const Rv=Math.hypot(W,H)*.62, vg=ctx.createRadialGradient(c.x,c.y,Rv*.35,c.x,c.y,Rv);vg.addColorStop(0,'rgba(40,60,75,0)');vg.addColorStop(1,'rgba(40,60,75,.12)');ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
-  // on a phone the picture sits behind the words until they scroll away
-  if(mobile&&k<1){ctx.fillStyle=`rgba(244,246,250,${(.75*(1-k)).toFixed(3)})`;ctx.fillRect(0,0,W,H);}
-  copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
-  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,v);}
+
+/* ============ THE FILM ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint'), clu=$('#clu');
+const STILL=/[?&]still\b/.test(location.search), FLAT=RM||STILL;
+if(FLAT)document.documentElement.classList.add('flat');
+{{$.film.runtime|raw}}
+const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fx:.62,fy:.4});
+let inFrame=false;try{inFrame=window.self!==window.top}catch(e){inFrame=true}
+let AUTO=inFrame&&scrollY<1&&!FLAT;
+if(AUTO)addEventListener('scroll',()=>{if(AUTO&&scrollY>=1){AUTO=false;film.poke()}},{passive:true});
+
+/* ============ THE GONIOMETER ============ */
+// a half circle from straight (0°) on the left to the top of the scale on the right; the goal marked in green
+const MAX=Math.max(180,Math.ceil(Math.max(JOB.goal,...STAGES.map(s=>s.angle))/30)*30), C=[100,100], R=82;
+const at=(deg,r)=>{const a=Math.PI-deg/MAX*Math.PI;return[C[0]+r*Math.cos(a),C[1]-r*Math.sin(a)];};
+$('#gTicks').innerHTML=Array.from({length:MAX/10+1},(_,i)=>{const d=i*10,[x0,y0]=at(d,R-(d%30?9:13)),[x1,y1]=at(d,R-5);return `<line class="tk" x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}"/>`;}).join('');
+{const [x0,y0]=at(JOB.goal,R-16),[x1,y1]=at(JOB.goal,R+8),[tx,ty]=at(JOB.goal,R+16);const g=$('#gGoal');g.setAttribute('x1',x0);g.setAttribute('y1',y0);g.setAttribute('x2',x1);g.setAttribute('y2',y1);const gt=$('#gGoalT');gt.setAttribute('x',tx);gt.setAttribute('y',ty);}
+const needle=$('#gNeedle'), gFill=$('#gFill');
+
+/* ============ THE CHART ============ */
+// pain (out of 10) and strength (out of 100) at each stage, plotted across the six; the line draws to where you are
+const n=STAGES.length, X=i=>i/(n-1)*100, pts=k=>STAGES.map((s,i)=>`${X(i).toFixed(2)},${(38-(k==='pain'?s.pain/10:s.strength/100)*34).toFixed(2)}`).join(' ');
+['tPain','tPainG'].forEach(id=>$('#'+id).setAttribute('points',pts('pain')));['tStr','tStrG'].forEach(id=>$('#'+id).setAttribute('points',pts('str')));
+const trRect=$('#trRect'), tMk=$('#tMk');let shown=-1;
+
+/* ============ FRAME ============ */
+let cur=0;const t0=performance.now();
 function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
-// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
-// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+const mobile=()=>innerWidth<820;
+function frame(p,time){
+  const P=FLAT?1:p;
+  film.draw(FLAT?1:AUTO?(time/Math.max(4,film.seconds()))%1:clamp(seg(P,.02,.92)),time);
+  const k=mobile()?seg(p,.01,.05):seg(p,.06,.12);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);clu.classList.toggle('on',FLAT||k>=1);
+  const v=values(P), s=STAGES[v.i];
+  if(v.i!==shown){shown=v.i;$('#cNum').textContent=v.i+1;$('#cTitle').textContent=s.n;$('#cText').textContent=s.c;$('#cWhen').textContent=s.when;}
+  const [nx,ny]=at(v.angle,R-20);needle.setAttribute('x2',nx.toFixed(1));needle.setAttribute('y2',ny.toFixed(1));gFill.setAttribute('stroke-dashoffset',(1-v.angle/MAX).toFixed(4));
+  $('#mRange').textContent=`${Math.round(v.angle)}°`;
+  $('#mPain').innerHTML=`${Math.round(v.pain)}<small>/ 10</small>`;$('#mStrength').innerHTML=`${Math.round(v.strength)}<small>%</small>`;$('#mSessions').textContent=v.sessions;
+  const x=Math.min(100,(v.i===0?0:X(v.i-1))+(X(v.i)-(v.i===0?0:X(v.i-1)))*sm(seg(P,s.w[0],s.w[0]+(s.w[1]-s.w[0])*.7)));
+  trRect.setAttribute('width',x.toFixed(2));tMk.setAttribute('x1',x.toFixed(2));tMk.setAttribute('x2',x.toFixed(2));
+}
 let gLast=-1e9,gForce=90;
-addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
-function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+addEventListener('resize',()=>{gForce=30;film.size();});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){if(AUTO)return false;const r=$('#stage').getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
   if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
 function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
-layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
-if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
 requestAnimationFrame(loop);
 })();
 </script>
@@ -550,4 +476,14 @@ area();drawSlots();
 })();
 </script>
 
+<script>
+/* the title arrives word by word */
+(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;let k=0;
+ // each word in its own clipped box; a block inside the title (a second line) keeps its place and has its words split too
+ const unit=(box,el)=>{const w=document.createElement('span');w.className='w';el.style.animationDelay=(150+k++*80)+'ms';w.appendChild(el);box.appendChild(w)};
+ const split=box=>{const parts=[...box.childNodes],blk=parts.map(n=>n.nodeType===1&&getComputedStyle(n).display==='block');box.textContent='';
+  parts.forEach((n,j)=>{if(n.nodeType===3)n.textContent.split(/(\s+)/).forEach(x=>{if(!x)return;if(/^\s+$/.test(x)){box.appendChild(document.createTextNode(' '));return}const i=document.createElement('i');i.textContent=x;unit(box,i)});
+   else if(n.nodeType===1){if(blk[j]){box.appendChild(n);if(n.children.length===0)split(n);return}const i=document.createElement('i');i.appendChild(n);unit(box,i)}});};
+ split(h);h.classList.add('split')})();
+</script>
 </body></html>

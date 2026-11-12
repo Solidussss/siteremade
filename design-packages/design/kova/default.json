@@ -16,7 +16,7 @@
     { "title": "Supercritical foam", "short": "Foam", "spec": "38 mm heel · 30 mm toe · 8 mm drop" },
     { "title": "Rubber pods", "short": "Outsole", "spec": "Only where your foot lands" }
   ],
-  "colors": { "eyebrow": "Colorways", "titleA": "four ways", "titleB": "to drift.", "body": "Same shoe, same 212 grams. Pick a colorway, then flip it to see the inside." },
+  "colors": { "eyebrow": "Colorways", "titleA": "four ways", "titleB": "to drift.", "body": "Same shoe, same 212 grams. Pick a colorway and see the colour of every part." },
   "colorways": [
     { "name": "Concrete", "upper": "#b9bcbc", "over": "#2a2c2f", "mid": "#f4f3ef", "sole": "#1a1b1d", "lace": "#f4f3ef", "acc": "#ff3b1f", "tongue": "#2a2c2f", "bg": "#dcdedd" },
     { "name": "Infrared", "upper": "#ff3b1f", "over": "#121315", "mid": "#f4f3ef", "sole": "#121315", "lace": "#121315", "acc": "#f4f3ef", "tongue": "#121315", "bg": "#f1c9c0" },

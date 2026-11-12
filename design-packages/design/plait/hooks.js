@@ -2,6 +2,7 @@
 // sources, lanes and cards, the readouts, integrations, plans and questions) and the rules the schema can't express
 // (cards per lane, which cards ship, plan limits, widths of the big type). Runs at build time only.
 'use strict';
+const film = require('../../engine/film');
 const { FILTERS } = require('../../engine/template');
 const js = FILTERS.js;
 
@@ -15,6 +16,7 @@ function derive(c) {
   const cur = c.locale.currency;
   const slug = c.demo.team.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30) || 'team';
   return {
+    film: film.derive(c, null, [140, 120, 255]),
     brandSaid: c.brand.name.replace(/\s*&\s*/g, ' and '),
     sourceCount: c.sources.length,
     stagesJs: c.stages.map((s, i) => ` {n:${js(s.n)},c:${js(s.c)},clock:${js(s.clock)},w:${WINDOWS[i]}}`).join(',\n'),

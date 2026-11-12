@@ -3,6 +3,7 @@
 // toppings, widths of the big type). Runs at build time only.
 'use strict';
 const { FILTERS } = require('../../engine/template');
+const photoHero = require('../../engine/photo-hero');
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 // the toppings the design can draw, and how many pieces one portion drops in the builder
 const KINDS = { mozz: 7, salame: 9, nduja: 6, provola: 6, friar: 6, mush: 7, olive: 9, basil: 5, burrata: 1, garlic: 7, sausage: 10, morta: 5 };
@@ -21,9 +22,22 @@ function derive(c) {
     const cat = [p.base].concat(p.veg ? ['veg'] : []);
     return `  { n: ${q(p.name)}, d: ${q(p.desc)}, p: ${jsNum(p.price)}, cat: [${cat.map(q).join(', ')}], tags: [${p.tags.map(q).join(', ')}], tops: [${p.toppings.map(([k, n]) => `[${q(k)}, ${n}]`).join(', ')}], o: ${o} }`;
   }).join(',\n');
-  const topsJs = B.toppings.map((t, i) => `  { id: ${q(key(t, i))}, name: ${q(t.name)}, price: ${jsNum(t.price)}, n: ${KINDS[t.kind]}, type: ${q(t.kind)}${t.kind === 'burrata' ? ', max: 1' : ''} }`).join(',\n');
+  const topsJs = B.toppings.map((t, i) => `  { id: ${q(key(t, i))}, name: ${q(t.name)}, price: ${jsNum(t.price)}, max: ${t.kind === 'burrata' ? 1 : 3} }`).join(',\n');
   const first = B.toppings[0];
+  const money = (v) => cur + (v % 1 ? v.toFixed(2) : String(v));
+  // the hero film: the take as still frames ("/…{n}.jpg|count|w|h|seconds"), else the video, else the photos, else type
+  const ph = c.photos || {}, okUrl = (u) => typeof u === 'string' && (/^(https:\/\/|\/)[^\s"'<>()]+$/.test(u) || /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(u));
+  const fm = typeof ph.frames === 'string' ? /^(\/[^\s"'<>()|]*\{n\}[^\s"'<>()|]*)\|(\d{1,4})\|(\d{1,5})\|(\d{1,5})\|(\d{1,4})$/.exec(ph.frames) : null;
+  const frames = fm && +fm[2] > 1 ? { u: fm[1], n: +fm[2], w: +fm[3], h: +fm[4], s: +fm[5] } : null;
+  const video = okUrl(ph.video) ? ph.video : null;
+  const photos = photoHero.shots(c).filter((x) => okUrl(x.src)).map((x) => ({ src: x.src, fx: x.fx / 100, fy: x.fy / 100, zoom: x.zoom }));
+  const film = { frames, video, photos };
   return {
+    pies: pies.map((p, i) => ({ no: String(i + 1).padStart(2, '0'), name: p.name, desc: p.desc, price: money(p.price), cat: [p.base].concat(p.veg ? ['veg'] : []).join(' '), tags: p.tags })),
+    tops: B.toppings.map((t, i) => ({ id: key(t, i), name: t.name, price: '+' + fmt(t.price), max: t.kind === 'burrata' ? 1 : 3 })),
+    filmJs: JSON.stringify(film).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029'),
+    filmMode: frames ? 'frames' : video ? 'video' : photos.length ? 'photos' : 'type',
+    poster: okUrl(ph.main) ? ph.main : '',
     heroAccent: FILTERS.esc(c.hero.accent).replace(/ /g, '&nbsp;'),
     menuJs, topsJs,
     counts: { all: pies.length, rossa: pies.filter((p) => p.base === 'rossa').length, bianca: pies.filter((p) => p.base === 'bianca').length, veg: pies.filter((p) => p.veg).length },
@@ -35,11 +49,10 @@ function derive(c) {
   };
 }
 
-// Phone (360px) nav row: logo (32px dough + name in Shrikhand 17px, wrapping to two lines) + sound button + order
-// button (14px, 700); measured in Edge and WebKit, the longest name word plus the button text reaches the edge at 195px.
-// Phone hero title 46px and section titles 42px in a 343px column: no single word wider than that.
-// Calibrated in the stress test.
-const LIMITS = { navRow: 188, heroWord: 7.0, titleWord: 7.6 };
+// Phone (360px) widths, all type in Anton capitals: the nav row (name at 20px, wrapping, + the order button at 13px
+// beside the 44px section button) has 210px of text; the hero title is 56px in a 328px column, section titles 48px,
+// pie names 30px beside their price, dough values 30px in half a column, the footer word 68px across.
+const LIMITS = { navRow: 210, heroWord: 5.7, titleWord: 6.7, pieWord: 7.2, doughValue: 4.4, wordmarkWord: 4.7 };
 
 function validate(c, ctx) {
   const e = [];
@@ -77,11 +90,14 @@ function validate(c, ctx) {
   if (!Number.isInteger(c.party.avg)) e.push('party.avg: a whole number');
   if (!/^[A-Z]{2,4}$/.test(c.order.refPrefix)) e.push('order.refPrefix: 2-4 capital letters');
   // widths
-  const em = (t) => ctx.textEm('display', String(t));
-  for (const p of ['hero.title', 'hero.accent']) for (const w of String(ctx.get(c, p)).split(/\s+/)) if (em(w) > LIMITS.heroWord) e.push(`${p}: the word "${w}" is too wide for the hero on a phone (${em(w).toFixed(2)} em, room for ${LIMITS.heroWord})`);
-  for (const p of ['menu.title', 'build.title', 'build.accent', 'party.title', 'party.accent', 'order.title', 'order.accent']) for (const w of String(ctx.get(c, p)).split(/\s+/)) if (em(w) > LIMITS.titleWord) e.push(`${p}: the word "${w}" is too wide for a phone (${em(w).toFixed(2)} em, room for ${LIMITS.titleWord})`);
-  // (the logo name wraps onto two lines on small phones, as the original does; what must fit is its longest word)
-  const nav = Math.max(...c.business.short.split(/\s+/).map(em)) * 17 + ctx.textEm('cta', c.nav.cta) * 14;
+  const em = (t) => ctx.textEm('display', String(t).toUpperCase());
+  const words = (p) => String(ctx.get(c, p)).split(/\s+/).filter(Boolean);
+  for (const p of ['hero.title', 'hero.accent']) for (const w of words(p)) if (em(w) > LIMITS.heroWord) e.push(`${p}: the word "${w}" is too wide for the hero on a phone (${em(w).toFixed(2)} em, room for ${LIMITS.heroWord})`);
+  for (const p of ['menu.title', 'build.title', 'build.accent', 'party.title', 'party.accent', 'order.title', 'order.accent']) for (const w of words(p)) if (em(w) > LIMITS.titleWord) e.push(`${p}: the word "${w}" is too wide for a phone (${em(w).toFixed(2)} em, room for ${LIMITS.titleWord})`);
+  c.menu.pies.forEach((pie, i) => { for (const w of words(`menu.pies.${i}.name`)) if (em(w) > LIMITS.pieWord) e.push(`menu.pies.${i}.name: the word "${w}" is too wide for a phone (${em(w).toFixed(2)} em, room for ${LIMITS.pieWord})`); });
+  c.dough.facts.forEach((f, i) => { if (em(f.value) > LIMITS.doughValue) e.push(`dough.facts.${i}.value: "${f.value}" is too wide for its box on a phone (${em(f.value).toFixed(2)} em, room for ${LIMITS.doughValue})`); });
+  for (const w of words('business.wordmark')) if (em(w) > LIMITS.wordmarkWord) e.push(`business.wordmark: the word "${w}" is too wide for the footer on a phone (${em(w).toFixed(2)} em, room for ${LIMITS.wordmarkWord}); use a shorter word of the name`);
+  const nav = Math.max(...c.business.short.split(/\s+/).map(em)) * 20 + ctx.textEm('cta', c.nav.cta) * 13;
   if (nav > LIMITS.navRow) e.push(`business.short + nav.cta: the phone nav row needs ${Math.round(nav)}px of text, a 360px phone has ${LIMITS.navRow}px (the longest word of "${c.business.short}" + "${c.nav.cta}")`);
   return e;
 }

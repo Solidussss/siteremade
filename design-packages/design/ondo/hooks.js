@@ -1,6 +1,7 @@
 // ONDO's design-specific build logic: the colourways as the page script's COLOURS, the big title letters, the spec
 // tables, prices and labels drawn on the headphones, and the rules the schema can't express. Runs at build time only.
 'use strict';
+const film = require('../../engine/film');
 const { FILTERS } = require('../../engine/template');
 const { rgbHsl, hexRgb } = require('../../engine/colour');
 const KEYS = [['shell', 'shell'], ['hi', 'hi'], ['lo', 'lo'], ['pad', 'pad'], ['padHi', "'pad-hi'"], ['metal', 'metal'], ['metalLo', "'metal-lo'"], ['label', 'label']];
@@ -12,6 +13,7 @@ function derive(c) {
   // non-breaking spaces between a number and its unit, and before the last word (as the original writes it)
   const nb = (s) => esc(s).replace(/(\d) (?=[A-Za-zµΩ°%])/g, '$1&nbsp;').replace(/ (\S+)$/, '&nbsp;$1');
   return {
+    film: film.derive(c, null, [255, 181, 71]),
     fullName: full,
     price: c.locale.currency + c.product.price,
     bigtype: `${letters(c.brand.name)}<span class="brk"></span>${letters(c.product.name)}`,

@@ -4,6 +4,7 @@
 'use strict';
 const { FILTERS } = require('../../engine/template');
 const js = FILTERS.js;
+const film = require('../../engine/film');
 
 const WINDOWS = ['[0,.12]', '[.12,.32]', '[.32,.46]', '[.46,.7]', '[.7,.84]', '[.84,1]'];
 const num = (n) => String(+(+n).toFixed(2)).replace(/^0\./, '.');
@@ -15,6 +16,7 @@ function derive(c) {
     tel: c.contact.phone.replace(/[^\d+]/g, ''),
     businessSaid: c.business.name.replace(/\s*&\s*/g, ' and '),
     brandSaid: c.brand.name.replace(/\s*&\s*/g, ' and '),
+    film: film.derive(c, null, [181, 101, 43]),
     stagesJs: c.stages.map((s, i) => ` {n:${js(s.n)},c:${js(s.c)},clock:${js(s.clock)},w:${WINDOWS[i]}}`).join(',\n'),
     boardJs: c.board.map((t) => ` {label:${js(t.label)},unit:${js(t.unit)},from:${num(t.from)},to:${num(t.to)},at:[${t.at[0]},${t.at[1]}],dec:${t.dec}}`).join(',\n'),
     // the board before the page script runs: its starting numbers

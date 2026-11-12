@@ -1,6 +1,7 @@
 // KOVA's design-specific build logic: the colorways as the page script's COLORWAYS, the drop day and time, the
 // labels printed on the drawn shoe, and the rules the schema can't express. Runs at build time only.
 'use strict';
+const film = require('../../engine/film');
 const { FILTERS } = require('../../engine/template');
 const { rgbHsl, hexRgb, contrast } = require('../../engine/colour');
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -11,6 +12,7 @@ function derive(c) {
   const js = FILTERS.js, d = DAYS.indexOf(c.drop.day), [h, m] = c.drop.time.split(':').map(Number);
   const price = c.locale.currency + c.product.price;
   return {
+    film: film.derive(c, null, [220, 225, 230]),
     colorwaysJs: c.colorways.map((w) => `    { name: ${js(w.name)}, ${KEYS.map((k) => `${k}: '${w[k]}'`).join(', ')}, plate: '#26282b', bg: '${w.bg}' },`).join('\n'),
     dropDay: d, dropH: h, dropM: m, dayName: NAMES[d], dayLower: NAMES[d].toLowerCase(),
     priceText: price,

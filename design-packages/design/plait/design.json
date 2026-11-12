@@ -15,12 +15,33 @@
   },
   "checks": {
     "lightness": [
-      { "path": "theme.accent", "range": [0.2, 0.7] }
+      {
+        "path": "theme.accent",
+        "range": [
+          0.2,
+          0.7
+        ]
+      }
     ],
     "contrast": [
-      ["#FFFFFF", "A:#6E56FF", 4.5, "button text on the accent"],
-      ["A:#5A41F0", "#F4F3EF", 4.5, "accent text on the paper"],
-      ["A:#8C79FF", "#0B0E1A", 4.5, "accent text on the night"]
+      [
+        "#FFFFFF",
+        "A:#6E56FF",
+        4.5,
+        "button text on the accent"
+      ],
+      [
+        "A:#5A41F0",
+        "#F4F3EF",
+        4.5,
+        "accent text on the paper"
+      ],
+      [
+        "A:#8C79FF",
+        "#0B0E1A",
+        4.5,
+        "accent text on the night"
+      ]
     ]
   },
   "metrics": {
@@ -28,14 +49,20 @@
       "fontChoice": null,
       "css": "font:800 1000px/1 {family};letter-spacing:-.025em",
       "fonts": {
-        "default": { "url": "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&display=swap", "family": "Bricolage Grotesque" }
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&display=swap",
+          "family": "Bricolage Grotesque"
+        }
       }
     },
     "cta": {
       "fontChoice": null,
       "css": "font:600 1000px/1 {family}",
       "fonts": {
-        "default": { "url": "https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap", "family": "Inter" }
+        "default": {
+          "url": "https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap",
+          "family": "Inter"
+        }
       }
     }
   },
@@ -44,13 +71,31 @@
       "name": "footer word fit",
       "type": "fitText",
       "selector": ".wordmark",
-      "text": ["brand.name"],
+      "text": [
+        "brand.name"
+      ],
       "suffix": ".",
       "metric": "display",
-      "size": [40, 16, 220],
-      "container": { "max": 1200, "gutter": [16, 4, 48] },
-      "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
+      "size": [
+        40,
+        16,
+        220
+      ],
+      "container": {
+        "max": 1200,
+        "gutter": [
+          16,
+          4,
+          48
+        ]
+      },
+      "skipIf": {
+        "path": "theme.wordmarkFit",
+        "equals": "crop"
+      }
     }
   ],
-  "photoHero": {}
+  "photoHero": {
+    "own": true
+  }
 }

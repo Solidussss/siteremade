@@ -5,6 +5,7 @@
 'use strict';
 const { FILTERS } = require('../../engine/template');
 const js = FILTERS.js;
+const film = require('../../engine/film');
 
 const WINDOWS = ['[0,.15]', '[.15,.3]', '[.3,.52]', '[.52,.68]', '[.68,.84]', '[.84,1]'];
 // the skin the piece goes on: a tone the content picks, drawn in this colour (the arm is shaded from it)
@@ -21,6 +22,7 @@ function derive(c) {
     tel: c.contact.phone.replace(/[^\d+]/g, ''),
     businessSaid: c.business.name.replace(/\s*&\s*/g, ' and '),
     brandSaid: c.brand.name.replace(/\s*&\s*/g, ' and '),
+    film: film.derive(c, null, [194, 40, 29]),
     stagesJs: c.stages.map((s, i) => ` {n:${js(s.n)},c:${js(s.c)},w:${WINDOWS[i]}}`).join(',\n'),
     pieceJs: `{motif:${js(c.piece.motif)},fine:${c.piece.style === 'fine'},inks:[${list(c.piece.inks)}],banner:${js(c.piece.banner)},skin:${js(SKIN[c.piece.skin])},caption:${js(c.piece.caption)}}`,
     countJs: `{hours:${num(c.count.hours)},needles:${c.count.needles},inks:${c.count.inks},heal:${js(c.count.heal)}}`,

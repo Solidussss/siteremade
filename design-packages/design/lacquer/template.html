@@ -1,11 +1,13 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>{{business.name}}</title>
+<meta name="description" content="{{hero.lede|attr}}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Hanken+Grotesk:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* Layout: a nail studio. One pinned fingertip done as you scroll (shaped, cuticles, base coat, two coats of colour, the
-   art, a top coat cured under the lamp), then the full set; then what a client needs: the menu with times and prices
+/* Layout: a nail studio. The real manicure plays as you scroll (the studio's own video or photos) above a rest with
+   all ten nails on it, in the client's shape, painted one after another: base, two coats, the art, then the top coat
+   glossed and cured under a lamp that glows over the picture; then what a client needs: the menu with times and prices
    to build a visit, a shelf of shades to try on a nail shape, and a slot to book with a technician. */
 :root{
   color-scheme:light;
@@ -57,48 +59,68 @@ p{margin:0}
 @media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
 @media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:24px}}
 
-/* hero: the fingertip */
+/* hero: the real manicure, and ten nails on the rest below, painted in turn */
 .hero{position:relative;height:560vh}
 .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--porcelain)}
-#nail{position:absolute;inset:0;width:100%;height:100%;display:block}
-.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 108px);max-width:520px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
-.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(251,247,244,.96),rgba(251,247,244,.78) 55%,rgba(251,247,244,0));pointer-events:none}
-.hero h1{font-size:clamp(3.1rem,min(6.4vw,10vh),6.4rem)}
+.stage .poster,#film{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.stage .poster{object-fit:cover}
+.veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(251,247,244,.94) 0%,rgba(251,247,244,.72) 32%,rgba(251,247,244,0) 54%),linear-gradient(0deg,rgba(251,247,244,.85),rgba(251,247,244,0) 32%)}
+.lamp{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(70% 60% at 62% 70%,rgba(150,90,255,.55),rgba(110,60,230,.18) 50%,rgba(110,60,230,0) 75%);mix-blend-mode:screen;opacity:0;transition:opacity .6s}
+.lamp.on{opacity:1;animation:hum 2.4s ease-in-out infinite}
+.flat .lamp.on{animation:none}
+@keyframes hum{50%{opacity:.75}}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 104px);max-width:540px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero h1{font-size:clamp(3rem,min(6vw,9.4vh),6rem)}
 .hero h1 em{display:block;color:var(--accent-text)}
-.lede{color:var(--ink-2);max-width:42ch;font-size:clamp(16px,1.3vw,18px)}
-.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
-.card{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 2*var(--gut)));padding:16px 20px 18px;background:var(--sheet);border-radius:18px;box-shadow:0 22px 56px -30px rgba(43,33,38,.4),0 0 0 1px rgba(43,33,38,.05)}
-.card .row{display:flex;justify-content:space-between;gap:10px;font:400 11.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.card .tool{color:var(--accent-text);display:flex;align-items:center;gap:6px}
-.card .tool i{width:10px;height:10px;border-radius:50%;background:var(--shade,#B0244E);box-shadow:0 0 0 2px var(--sheet),0 0 0 3px var(--line)}
-.card h3{font-size:clamp(30px,2.8vw,40px);margin-top:10px}
-.card p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.2em}
-.meter{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;border-radius:18px;background:var(--sheet);box-shadow:0 22px 56px -30px rgba(43,33,38,.4),0 0 0 1px rgba(43,33,38,.05);overflow:hidden}
-.meter div{padding:12px 18px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
-.meter div:nth-child(2n){border-right:0}
-.meter div:nth-child(n+3){border-bottom:0}
-.meter dt{font:400 10.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.meter dd{margin:6px 0 0;font:600 26px/1 var(--f-body);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
-.meter dd small{font:400 11px var(--f-mono);color:var(--muted);margin-left:3px;letter-spacing:0}
-.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap}
-.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+.lede{color:var(--ink-2);max-width:44ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.split .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.22em;margin-bottom:-.14em}
+.split .w{padding-right:.1em;margin-right:-.1em}
+.split .w>i{display:inline-block;font-style:inherit;animation:wrise .9s cubic-bezier(.16,1,.3,1) both}
+@keyframes wrise{from{transform:translateY(108%)}}
+.hint{position:absolute;z-index:4;left:var(--gut);bottom:calc(30px + env(safe-area-inset-bottom,0px));font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:10px;pointer-events:none}
+.hint i{display:block;width:1px;height:22px;background:linear-gradient(var(--muted),transparent);animation:cue 1.6s ease-in-out infinite}
 @keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
-/* short laptop screens: a little less type so the copy clears the card */
-@media (min-width:821px) and (max-height:780px){.hero-copy{gap:14px}.hero h1{font-size:clamp(3.1rem,min(6.4vw,9vh),6.4rem)}.lede{font-size:15px}}
+.now{position:absolute;z-index:3;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 112px);max-width:min(440px,38vw);opacity:0;transition:opacity .45s}
+.now.on{opacity:1}
+.now .k{display:inline-flex;align-items:center;gap:8px;font:500 11px/1.2 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent-text)}
+.now .k i{width:9px;height:9px;border-radius:50%;background:var(--shade,#D9DEE6);box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)}
+.now h3{font:400 clamp(40px,4.6vw,68px)/1 var(--f-display);margin-top:10px}
+.now p{color:var(--ink-2);margin-top:12px;font-size:17px;max-width:34ch;min-height:4.7em}
+/* the rest: ten nails in two hands, each painted in turn */
+.rest{position:absolute;z-index:4;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(1100px,calc(100% - 2*var(--gut)));display:flex;align-items:center;justify-content:space-between;gap:20px;padding:16px 22px;border-radius:22px;background:rgba(255,255,255,.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 0 0 1px rgba(43,33,38,.06),0 24px 50px -30px rgba(43,33,38,.45);opacity:0;transition:opacity .45s}
+.rest.on{opacity:1}
+.hands{display:flex;gap:clamp(18px,3vw,40px)}
+.hand{display:flex;align-items:flex-end;gap:clamp(6px,.9vw,12px)}
+.nl{position:relative;width:clamp(22px,2.3vw,32px);height:calc(clamp(22px,2.3vw,32px) * var(--len,1.5));border-radius:var(--rad);clip-path:var(--clip,none);background:#F1D3CA;box-shadow:inset 0 -6px 8px -6px rgba(140,70,60,.35);overflow:hidden}
+.nl:nth-child(1){--len:1.25}.nl:nth-child(2){--len:1.55}.nl:nth-child(3){--len:1.65}.nl:nth-child(4){--len:1.5}.nl:nth-child(5){--len:1.15}
+.nl .bs,.nl .c1,.nl .c2{position:absolute;left:0;right:0;bottom:0;height:100%;transform-origin:50% 100%;transform:scaleY(var(--f,0))}
+.nl .bs{background:rgba(255,240,240,.55)}
+.nl .c1{background:var(--col);opacity:.62}
+.nl .c2{background:var(--col)}
+.nl .art{position:absolute;inset:0;opacity:var(--a,0);transition:opacity .3s;background:radial-gradient(circle at 50% 42%,var(--artc) 0 2.4px,transparent 3px),radial-gradient(circle at 40% 36%,var(--artc) 0 2.2px,transparent 2.8px),radial-gradient(circle at 60% 36%,var(--artc) 0 2.2px,transparent 2.8px),radial-gradient(circle at 44% 50%,var(--artc) 0 2.2px,transparent 2.8px),radial-gradient(circle at 56% 50%,var(--artc) 0 2.2px,transparent 2.8px),radial-gradient(circle at 50% 44%,#F2C14E 0 1.4px,transparent 1.8px)}
+.nl .gl{position:absolute;inset:0;opacity:var(--g,0);background:linear-gradient(100deg,transparent 22%,rgba(255,255,255,.75) 30%,rgba(255,255,255,0) 40%),linear-gradient(180deg,rgba(255,255,255,.3),transparent 40%)}
+.nl.chrome .gl{background:linear-gradient(100deg,rgba(255,255,255,.1) 10%,rgba(255,255,255,.85) 30%,rgba(255,255,255,.1) 50%,rgba(255,255,255,.6) 70%,transparent 85%)}
+.nl.matte .gl{background:linear-gradient(180deg,rgba(255,255,255,.12),transparent)}
+.rest dl{display:flex;gap:clamp(14px,2vw,28px);margin:0}
+.rest dt{font:400 10px/1.2 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.rest dd{margin:6px 0 0;font:400 26px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rest .cure{font:500 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:#6b3fd6;min-width:9ch}
+@media (max-width:980px){.rest{flex-wrap:wrap;justify-content:center}.rest dl{width:100%;justify-content:space-between}}
 @media (max-width:820px){
-  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 86px);max-width:none;right:var(--gut);gap:14px}
+  .veil{background:linear-gradient(180deg,rgba(251,247,244,.94) 0%,rgba(251,247,244,.66) 34%,rgba(251,247,244,0) 50%),linear-gradient(0deg,rgba(251,247,244,.9),rgba(251,247,244,0) 42%)}
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 84px);max-width:none;right:var(--gut);gap:14px}
   .hero .acts{display:none}
-  .meter{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:repeat(2,minmax(0,.82fr)) minmax(0,1.36fr) minmax(0,1fr);bottom:calc(204px + env(safe-area-inset-bottom,0px))}
-  .meter div{padding:9px 10px;border-bottom:0}
-  .meter div:nth-child(2n){border-right:1px solid var(--line)}
-  .meter div:last-child{border-right:0}
-  .meter dt{font-size:8.5px;letter-spacing:.03em}
-  .meter dd{font-size:clamp(16px,4.6vw,22px)}
-  .meter dd small{display:none}
-  .meter dd#kShade,.meter dd#kLasts{white-space:normal;overflow-wrap:anywhere;line-height:1.05;font-size:clamp(14px,4vw,19px)}
-  .card{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 18px}
-  .card p{font-size:14px;min-height:4.4em}
   .hint{display:none}
+  .now{top:calc(env(safe-area-inset-top,0px) + 76px);right:var(--gut);max-width:none}
+  .now h3{font-size:38px}
+  .now p{font-size:14.5px;min-height:3em}
+  .rest{width:calc(100% - 20px);padding:12px 12px;border-radius:16px;gap:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+  .hands{gap:14px}
+  .hand{gap:5px}
+  .nl{width:24px}
+  .rest dd{font-size:18px}
+  .rest dt{font-size:9px;letter-spacing:.04em}
 }
 
 /* sections */
@@ -205,9 +227,12 @@ footer{background:var(--ink);color:var(--porcelain);padding:clamp(70px,9vw,120px
 </nav>
 
 <main>
-<section class="hero" id="top" aria-label="A manicure done nail by nail, scroll to run it">
+<section class="hero" id="top" aria-label="A manicure done nail by nail; scroll to run it">
   <div class="stage" id="stage">
-    <canvas id="nail" aria-hidden="true"></canvas>
+{{#if $.film.poster}}    <img class="poster" src="{{$.film.poster|attr}}" alt="" aria-hidden="true">
+{{/if}}    <canvas id="film" role="img" aria-label="A manicure at {{brand.name|attr}}: shaped, painted and finished"></canvas>
+    <div class="lamp" id="lamp" aria-hidden="true"></div>
+    <div class="veil" aria-hidden="true"></div>
     <div class="hero-copy" id="heroCopy">
       <p class="eyebrow">{{hero.eyebrow}}</p>
       <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
@@ -215,16 +240,16 @@ footer{background:var(--ink);color:var(--porcelain);padding:clamp(70px,9vw,120px
       <div class="acts"><a class="btn" href="#menu">{{hero.cta}}</a><a class="btn ghost" href="#shades">{{hero.cta2}}</a></div>
     </div>
     <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
-    <dl class="meter" id="meter" aria-live="off">
-      <div><dt>{{count.labels.0}}</dt><dd id="kMin">0</dd></div>
-      <div><dt>{{count.labels.1}}</dt><dd id="kCoats">0</dd></div>
-      <div><dt>{{count.labels.2}}</dt><dd id="kShade">—</dd></div>
-      <div><dt>{{count.labels.3}}</dt><dd id="kLasts">—</dd></div>
-    </dl>
-    <div class="card" id="card" aria-live="polite">
-      <div class="row"><span><b id="gNum">1</b> of 6</span><span class="tool" id="gTool"><i></i><span id="gToolName">{{stages.0.tool}}</span></span></div>
-      <h3 id="gTitle">{{stages.0.n}}</h3>
-      <p id="gText">{{stages.0.c}}</p>
+    <div class="now" id="now" aria-live="polite"><span class="k" id="gTool"><i></i><span><span id="gNum">1</span> of 6 · <span id="gToolName">{{stages.0.tool}}</span></span></span><h3 id="gTitle">{{stages.0.n}}</h3><p id="gText">{{stages.0.c}}</p></div>
+    <div class="rest" id="rest">
+      <div class="hands" id="hands" aria-hidden="true"></div>
+      <span class="cure" id="cure" aria-hidden="true"></span>
+      <dl id="meter" aria-live="off">
+        <div><dt>{{count.labels.0}}</dt><dd id="kMin">0</dd></div>
+        <div><dt>{{count.labels.1}}</dt><dd id="kCoats">0</dd></div>
+        <div><dt>{{count.labels.2}}</dt><dd id="kShade">—</dd></div>
+        <div><dt>{{count.labels.3}}</dt><dd id="kLasts">—</dd></div>
+      </dl>
     </div>
   </div>
 </section>
@@ -480,6 +505,7 @@ function towel(c,x0,y0,w,h,a){const px=pxOf(c);c.save();c.rotate(a);
   c.strokeStyle='rgba(165,152,140,.45)';c.lineWidth=.009;c.setLineDash([.035,.022]);c.beginPath();c.moveTo(x0,y0+.19);c.lineTo(x0+w,y0+.19);c.stroke();c.setLineDash([]);c.restore();c.restore();}
 // the try-on: five tips in a row on marble, sized thumb to little finger
 let shelfTable=null;
+function lift(c,h){const px=pxOf(c);c.shadowColor='rgba(60,34,26,.3)';c.shadowBlur=px*.06*h;c.shadowOffsetX=px*.05*h;c.shadowOffsetY=px*.09*h;}
 window.__nailSet=function(c,w,h,o){const key=Math.round(w)+'x'+Math.round(h);if(!shelfTable||shelfTable.key!==key){shelfTable=marble(2400,Math.round(2400*h/w),23);shelfTable.key=key;}c.drawImage(shelfTable,0,0,w,h);
   const z=Math.min(w/6.8,h/(2.1+o.length*1.4));c.save();c.translate(w/2,h/2+z*(.58+o.length/2));c.scale(z,z);
   [1.08,.95,1,.94,.8].forEach((s,i)=>{c.save();c.translate((i-2)*1.18,Math.abs(i-2)*.1);c.rotate((i-2)*.05);c.scale(s,s);c.translate(0,(1-s)*-.6);tip(c,o,i+3,0);c.restore();});c.restore();};
@@ -496,146 +522,56 @@ const NAIL={{$.nailJs|raw}};
 const COUNT={{$.countJs|raw}};
 const BG='rgb(251,247,244)';
 
-/* ============ GEOMETRY ============ */
-const cv=$('#nail'), ctx=cv.getContext('2d');
-let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null,LZ=null,TABLE=null;
-// a fingertip with room for the tools is 1.7 wide and 3.3 tall (tip at the top); with the set in a ring round it, 5.6 by 5.4 and the length
-function fit(ax,ay){const s=Math.min((ax[1]-ax[0])/1.7,(ay[1]-ay[0])/3.3);return{s,x:(ax[0]+ax[1])/2,y:ay[0]+s*(1.95+NAIL.length*.5)};}
-function fitFan(ax,ay){const s=Math.min((ax[1]-ax[0])/5.6,(ay[1]-ay[0])/(5.4+NAIL.length));return{s,x:(ax[0]+ax[1])/2,y:(ay[0]+ay[1])/2+s*(.65+NAIL.length/2)};}
-function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
-  TABLE=marble(cv.width,cv.height,23);
-  const top=Math.max(70,H*.1), mt=$('#meter').getBoundingClientRect(), cd=$('#card').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
-  if(mobile){const lo=mt.top-stg.top-10;LA=LB=fit([W*.04,W*.96],[top,lo]);LZ=fitFan([W*.03,W*.97],[top,lo]);}
-  else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(mt.top,cd.top)-stg.top;
-    const side=fit([cr+20,W*.97],[H*.1,low-12]), under=fit([W*.05,W*.95],[cb+20,low-12]);
-    LA=side.s>=under.s*.8?side:under;LB=fit([W*.2,W*.8],[top,low-14]);LZ=fitFan([W*.08,W*.92],[top,low-14]);}}
+/* ============ THE FILM ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint'), now=$('#now'), rest=$('#rest'), lamp=$('#lamp'), cure=$('#cure');
+const STILL=/[?&]still\b/.test(location.search), FLAT=RM||STILL;
+if(FLAT)document.documentElement.classList.add('flat');
+{{$.film.runtime|raw}}
+const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fx:.62,fy:.5});
+let inFrame=false;try{inFrame=window.self!==window.top}catch(e){inFrame=true}
+let AUTO=inFrame&&scrollY<1&&!FLAT;
+if(AUTO)addEventListener('scroll',()=>{if(AUTO&&scrollY>=1){AUTO=false;film.poke()}},{passive:true});
 
-/* ============ DRAWING ============ */
+/* ============ TEN NAILS ============ */
+// the client's shape as an outline, both hands little finger to thumb, painted left to right
+const SHAPE_CSS={square:['5px 5px 40% 40% / 5px 5px 26% 26%',''],round:['50% 50% 42% 42% / 34% 34% 26% 26%',''],almond:['50% 50% 42% 42% / 64% 64% 26% 26%',''],
+  coffin:['4px 4px 40% 40% / 4px 4px 26% 26%','polygon(22% 0,78% 0,100% 40%,100% 100%,0 100%,0 40%)'],stiletto:['0 0 42% 42% / 0 0 26% 26%','polygon(50% 0,100% 48%,100% 100%,0 100%,0 48%)']};
+const sc=SHAPE_CSS[NAIL.shape]||SHAPE_CSS.almond, ART=NAIL.art&&NAIL.art!=='none';
+const hand=()=>`<div class="hand">${Array.from({length:5},()=>`<span class="nl ${NAIL.finish||''}"><i class="bs"></i><i class="c1"></i><i class="c2"></i>${ART?'<i class="art"></i>':''}<i class="gl"></i></span>`).join('')}</div>`;
+$('#hands').innerHTML=hand()+hand();
+const nails=[...document.querySelectorAll('#hands .nl')];
+nails.forEach(n=>{n.style.setProperty('--rad',sc[0]);if(sc[1])n.style.setProperty('--clip',sc[1]);n.style.setProperty('--col',NAIL.col);n.style.setProperty('--artc',NAIL.artCol||'#fff');});
+// each nail gets its share of a step, one after the other
+const turn=(f,i)=>clamp(f*nails.length-i*.85);
 let shown=-1;
-// a tool held above the hand casts a soft shadow down and to the right; h is how high it's held
-function lift(c,h){const px=pxOf(c);c.shadowColor='rgba(60,34,26,.3)';c.shadowBlur=px*.06*h;c.shadowOffsetX=px*.05*h;c.shadowOffsetY=px*.09*h;}
-const STEEL=['#7E858F','#D9DEE4','#A3AAB3','#F4F6F8','#BCC2C9','#6F767F'];
-function across(c,w,cols){const g=c.createLinearGradient(-w/2,0,w/2,0);cols.forEach((col,i)=>g.addColorStop(i/(cols.length-1),col));return g;}
-// a crystal glass file, its filing face etched, sliding to and fro under the free edge
-function file(c,k,time,L){if(k<=0||k>=1)return;const y=-1.05-L*.95, x=Math.sin(k*Math.PI*6)*.35;c.save();c.translate(x,y);c.rotate(-.12);
-  c.save();lift(c,1.2);c.fillStyle='rgba(214,226,236,.5)';c.beginPath();c.roundRect(-1.3,-.11,2.6,.22,.11);c.fill();c.restore();
-  c.save();c.beginPath();c.roundRect(-1.3,-.11,2.6,.22,.11);c.clip();
-  const g=c.createLinearGradient(0,-.11,0,.11);g.addColorStop(0,'rgba(255,255,255,.85)');g.addColorStop(.18,'rgba(220,232,242,.35)');g.addColorStop(.55,'rgba(190,206,220,.3)');g.addColorStop(.85,'rgba(150,170,190,.45)');g.addColorStop(1,'rgba(255,255,255,.7)');c.fillStyle=g;c.fillRect(-1.3,-.11,2.6,.22);
-  c.globalAlpha*=.75;c.fillStyle=pat(c,FROST,.12);c.fillRect(-1.05,-.08,1.9,.16);c.globalAlpha/=.75;
-  c.fillStyle='rgba(255,255,255,.75)';c.fillRect(-1.2,-.085,2.3,.012);c.fillStyle='rgba(120,140,160,.25)';c.fillRect(.95,-.11,.006,.22);c.restore();
-  c.strokeStyle='rgba(110,130,150,.45)';c.lineWidth=.006;c.beginPath();c.roundRect(-1.3,-.11,2.6,.22,.11);c.stroke();c.restore();
-  // the dust of the edge
-  const r=rng(Math.floor(k*40));for(let i=0;i<22;i++){const dx=(r()-.5)*.7, dy=r()*.4, s=.006+r()*.012;rad(c,dx,y+.08+dy,s*1.8,s*1.8,`rgba(255,248,244,${.5+r()*.4})`);c.fillStyle='rgba(250,240,236,.95)';c.beginPath();c.arc(dx,y+.08+dy,s*.6,0,7);c.fill();}}
-// a steel pusher, its spoon end easing the skin back along the base of the nail
-function pusher(c,k){if(k<=0||k>=1)return;const a=lerp(-.9,.9,sm(k)), x=Math.sin(a)*.3, y=-.14-Math.cos(a)*.06;c.save();c.translate(x,y);c.rotate(.5);
-  c.save();lift(c,.8);c.fillStyle=across(c,.13,STEEL);c.beginPath();c.moveTo(-.075,-.03);c.quadraticCurveTo(0,-.09,.075,-.03);c.lineTo(.03,.32);c.lineTo(.05,.42);c.lineTo(.055,2.4);c.lineTo(-.055,2.4);c.lineTo(-.05,.42);c.lineTo(-.03,.32);c.closePath();c.fill();c.restore();
-  // the knurled grip and the polished spoon
-  c.save();c.beginPath();c.rect(-.055,.6,.11,1.5);c.clip();c.strokeStyle='rgba(60,66,74,.35)';c.lineWidth=.006;for(let t=.55;t<2.15;t+=.03){c.beginPath();c.moveTo(-.06,t);c.lineTo(.06,t+.05);c.stroke();c.beginPath();c.moveTo(.06,t);c.lineTo(-.06,t+.05);c.stroke();}c.restore();
-  c.fillStyle='rgba(255,255,255,.7)';c.beginPath();c.ellipse(-.02,-.02,.03,.012,0,0,7);c.fill();c.fillRect(-.018,.45,.01,1.9);c.restore();}
-// the bottle's brush: a fan of bristles loaded with colour, its stem and the glossy cap it's held by
-function brush(c,x,y,col,on){if(!on)return;c.save();c.translate(x,y);c.rotate(.28);
-  c.save();lift(c,1);c.fillStyle=across(c,.2,['#0E0B0D','#2F282C','#6E6468','#1E191C','#0A0809']);c.beginPath();c.roundRect(-.1,.26,.2,1.15,.035);c.fill();c.restore();
-  c.fillStyle='rgba(255,255,255,.45)';c.fillRect(-.045,.3,.016,1.06);c.fillStyle='rgba(255,255,255,.08)';for(let t=.33;t<.6;t+=.04)c.fillRect(-.1,t,.2,.012);
-  c.fillStyle=across(c,.05,STEEL);c.fillRect(-.022,.16,.044,.12);
-  const g=c.createLinearGradient(0,0,0,.2);g.addColorStop(0,col);g.addColorStop(1,'rgba(40,24,28,.9)');c.fillStyle=g;c.beginPath();c.moveTo(-.07,.01);c.quadraticCurveTo(0,.045,.07,.01);c.lineTo(.03,.18);c.lineTo(-.03,.18);c.closePath();c.fill();
-  c.strokeStyle='rgba(0,0,0,.18)';c.lineWidth=.004;for(let i=-3;i<=3;i++){c.beginPath();c.moveTo(i*.018,.025);c.lineTo(i*.008,.17);c.stroke();}
-  c.fillStyle='rgba(255,255,255,.55)';c.beginPath();c.ellipse(-.025,.06,.008,.04,.1,0,7);c.fill();c.restore();}
-// a dotting tool: a polished steel ball on a pen-sized handle
-function dotter(c,x,y,on){if(!on)return;c.save();c.translate(x,y);c.rotate(.35);
-  c.save();lift(c,.9);c.fillStyle=across(c,.016,STEEL);c.fillRect(-.008,0,.016,.32);c.fillStyle=across(c,.07,['#4B3A5E','#8B73AE','#C9B7DF','#7A5F9C','#3E2F50']);c.beginPath();c.roundRect(-.035,.3,.07,.95,.035);c.fill();c.restore();
-  const b=c.createRadialGradient(-.008,-.01,0,0,0,.028);b.addColorStop(0,'#FFFFFF');b.addColorStop(.5,'#B8BEC6');b.addColorStop(1,'#5E656E');c.fillStyle=b;c.beginPath();c.arc(0,0,.026,0,7);c.fill();
-  c.fillStyle='rgba(255,255,255,.4)';c.fillRect(-.018,.34,.01,.86);c.restore();}
-// the oil: a glass dropper comes in over the cuticle and lets one golden drop fall
-function dropper(c,k){const on=sm(seg(k,.35,.5))*(1-sm(seg(k,.85,1)));if(on<=0)return;const drop=seg(k,.5,.62);c.save();c.globalAlpha*=on;c.translate(.02,lerp(-1.1,-.42,sm(seg(k,.35,.5))));c.scale(1.4,1.4);
-  if(drop>0&&drop<1){const dy=.02+drop*.25;const g=c.createRadialGradient(-.006,dy-.01,0,0,dy,.035);g.addColorStop(0,'#FFF1C2');g.addColorStop(.5,'#E8B53C');g.addColorStop(1,'#A86F12');c.fillStyle=g;c.beginPath();c.moveTo(0,dy-.045);c.quadraticCurveTo(.026,dy-.005,.022,dy+.012);c.arc(0,dy+.008,.022,0,Math.PI);c.quadraticCurveTo(-.026,dy-.005,0,dy-.045);c.fill();}
-  c.save();lift(c,1.1);c.fillStyle='rgba(214,228,234,.38)';c.beginPath();c.moveTo(-.02,0);c.quadraticCurveTo(0,.014,.02,0);c.lineTo(.038,-.5);c.lineTo(-.038,-.5);c.closePath();c.fill();c.restore();
-  const oil=c.createLinearGradient(-.03,0,.03,0);oil.addColorStop(0,'rgba(168,111,18,.85)');oil.addColorStop(.4,'rgba(240,196,92,.8)');oil.addColorStop(1,'rgba(150,96,14,.85)');c.fillStyle=oil;c.beginPath();c.moveTo(-.017,-.01);c.lineTo(.017,-.01);c.lineTo(.03,-.24);c.lineTo(-.03,-.24);c.closePath();c.fill();
-  c.fillStyle='rgba(255,255,255,.7)';c.fillRect(-.026,-.48,.008,.45);c.fillStyle='rgba(255,255,255,.3)';c.fillRect(.016,-.46,.005,.4);
-  c.save();lift(c,1.3);c.fillStyle=across(c,.13,['#050404','#2B2527','#5C5356','#1A1617','#030303']);c.beginPath();c.roundRect(-.055,-.56,.11,.08,.02);c.fill();c.beginPath();c.ellipse(0,-.72,.066,.17,0,0,7);c.fill();c.restore();
-  c.fillStyle='rgba(255,255,255,.3)';c.beginPath();c.ellipse(-.025,-.76,.012,.08,0,0,7);c.fill();c.restore();}
-// the LED lamp: a white dome over the hand, its LEDs glowing and its light washing the nail violet
-function lamp(c,k,time){if(k<=0)return;const y=lerp(-3.4,-1.15,sm(k));c.save();
-  c.save();c.globalCompositeOperation='screen';rad(c,0,-.7,1.3,1.3,`rgba(130,105,255,${.4*sm(k)})`);c.restore();
-  c.translate(0,y);const dome=new Path2D();dome.moveTo(-1.08,.42);dome.bezierCurveTo(-1.08,-.62,1.08,-.62,1.08,.42);dome.lineTo(.8,.42);dome.bezierCurveTo(.8,-.3,-.8,-.3,-.8,.42);dome.closePath();
-  c.save();lift(c,2.2);c.fillStyle='#F4F2F1';c.fill(dome);c.restore();
-  c.save();c.clip(dome);const g=c.createLinearGradient(0,-.4,0,.42);g.addColorStop(0,'#FFFFFF');g.addColorStop(.6,'#ECE9E8');g.addColorStop(1,'#CFCAC8');c.fillStyle=g;c.fillRect(-1.2,-.6,2.4,1.1);
-  c.strokeStyle='rgba(255,255,255,.95)';c.lineWidth=.03;c.beginPath();c.moveTo(-.98,.3);c.bezierCurveTo(-.98,-.48,.98,-.48,.98,.3);c.stroke();
-  c.strokeStyle='rgba(60,50,70,.5)';c.lineWidth=.07;c.beginPath();c.moveTo(-.8,.42);c.bezierCurveTo(-.8,-.3,.8,-.3,.8,.42);c.stroke();c.restore();
-  c.fillStyle='rgba(30,28,36,.85)';c.beginPath();c.roundRect(-.22,-.32,.44,.07,.03);c.fill();c.save();c.translate(0,-.285);c.scale(.01,.01);c.fillStyle='#9DF0C8';c.font='600 5px system-ui,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(String(60-Math.floor(k*30)).padStart(2,'0'),0,0);c.restore();
-  for(let i=0;i<7;i++){const a=Math.PI*(.15+i*.7/6), x=-Math.cos(a)*.86, yy=.32-Math.sin(a)*.62, on=.6+.4*Math.sin(time*6+i);
-    rad(c,x,yy,.09,.09,`rgba(150,125,255,${.55*on})`);c.fillStyle=`rgba(235,228,255,${on})`;c.beginPath();c.arc(x,yy,.018,0,7);c.fill();}c.restore();}
-// the hero's own nail, as far as p has got; z is how far the view has pulled back to the whole hand
-function hero(c,f,time,z){const L=NAIL.length, path=nailPath(NAIL.shape,L);
-  fingerOn(c,NAIL.skin,.7,2.2);
-  // the shape: the natural nail is filed back to the chosen shape
-  bare(c,path);const shp=sm(f[0]);if(shp<1){c.save();c.globalAlpha*=1-shp;bare(c,nailPath('natural',.52));c.restore();}
-  // base coat: milky, painted cuticle to tip
-  const tipY=-1.05-L, base=sm(f[2]);if(base>0){c.save();c.clip(path);c.beginPath();c.rect(-1,lerp(.05,tipY-.05,base),2,3);c.clip();c.fillStyle='rgba(246,214,214,.72)';c.fillRect(-1,-2.6,2,3);c.restore();}
-  // colour: two coats of three strokes, each from the cuticle up
-  const strokes=[0,-.2,.2,0,-.2,.2], fc=f[3];let tool=null;
-  strokes.forEach((x,i)=>{const k=sm(seg(fc,i/6,(i+1)/6));if(k<=0)return;const y=lerp(.05,tipY-.05,k);c.save();c.clip(path);c.beginPath();c.moveTo(x-.17,.1);c.lineTo(x-.17,y+.06);c.quadraticCurveTo(x,y-.05,x+.17,y+.06);c.lineTo(x+.17,.1);c.closePath();c.clip();
-    c.globalAlpha*=i<3?.7:1;c.fillStyle=polishFill(c,NAIL.col,NAIL.finish);c.fillRect(-1,-2.6,2,3);c.restore();if(k<1)tool=['brush',x,y];});
-  if(fc>=1){c.save();c.clip(path);sparkle(c,NAIL.col,NAIL.finish,3);c.restore();}
-  // the colour has depth across the curve of the nail
-  const deep=Math.max(base*.35,sm(seg(fc,0,.5)));if(deep>0){c.save();c.globalAlpha*=deep;polishDepth(c,path,f[5]>.3?NAIL.finish:'cream');c.restore();}
-  // the skin round the nail; before the cuticle step a pale rim of cuticle covers the base
-  const cut=sm(seg(f[1],0,.5));folds(c,NAIL.skin,1-cut);
-  // then a drop of oil soaks into it
-  const oil=sm(seg(f[1],.55,.85)), oilOff=1-sm(seg(f[2],0,.5));if(oil>0){c.save();c.globalAlpha*=oilOff;rad(c,0,-.16,.5*oil+.01,.16*oil+.01,'rgba(255,196,80,.32)');
-    c.fillStyle='rgba(240,180,70,.42)';c.beginPath();c.ellipse(0,-.13,.34*oil,.06,0,0,7);c.fill();rad(c,-.1,-.15,.09*oil+.001,.016,'rgba(255,255,255,.85)');rad(c,.16,-.17,.04*oil+.001,.01,'rgba(255,255,255,.6)');c.restore();}
-  // wet shine while it's being painted
-  if(fc>0&&fc<1)gloss(c,.55,NAIL.shape,L);
-  // the art
-  const ak=f[4];art(c,NAIL.art,NAIL.artCol,ak,path,L);if(ak>0&&ak<1&&NAIL.art!=='none')tool=['dot',lerp(-.2,.15,ak),lerp(-.5,-1,ak)];
-  // top coat, the lamp, and the shine
-  gloss(c,NAIL.finish==='matte'?.25*sm(seg(f[5],.05,.5)):sm(seg(f[5],.05,.5)),NAIL.shape,L);
-  // tools
-  file(c,f[0]>.05?seg(f[0],.05,.95):0,time,L);pusher(c,seg(f[1],.03,.5));dropper(c,f[1]);
-  if(f[2]>0&&f[2]<1)brush(c,0,lerp(.05,tipY-.05,base),'#F6D6D6',true);
-  if(tool&&tool[0]==='brush')brush(c,tool[1],tool[2],NAIL.col,true);if(tool&&tool[0]==='dot')dotter(c,tool[1],tool[2],true);
-  lamp(c,sm(seg(f[5],0,.18))*(1-sm(seg(f[5],.38,.5))),time);
-  return path;}
-
-/* ============ HUD ============ */
-function hud(p,f){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
-  if(idx!==shown){shown=idx;$('#gNum').textContent=idx+1;$('#gTitle').textContent=STAGES[idx].n;$('#gText').textContent=STAGES[idx].c;$('#gToolName').textContent=STAGES[idx].tool;
-    $('#gTool').style.setProperty('--shade',idx>=3?NAIL.col:idx===2?'#F6D6D6':'#D9DEE6');}
-  const work=clamp((f[0]+f[1]+f[2]+f[3]+f[4]+f[5])/6);$('#kMin').textContent=Math.round(COUNT.mins*work);
-  const coats=f[2]>=.5?1:0;const c2=coats+(f[3]>=.5?1:0)+(f[3]>=1?1:0)+(f[4]>=1?1:0)+(f[5]>=.5?1:0);$('#kCoats').textContent=Math.min(COUNT.coats,Math.round(c2*COUNT.coats/5));
-  $('#kShade').textContent=f[3]>0?NAIL.shade:'—';$('#kLasts').textContent=p>=STAGES[5].w[0]+.08?COUNT.lasts:'—';}
 
 /* ============ FRAME ============ */
-const hero_=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
 let cur=0;const t0=performance.now();
-function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;if(TABLE)ctx.drawImage(TABLE,0,0);else{ctx.fillStyle=BG;ctx.fillRect(0,0,cv.width,cv.height);}ctx.setTransform(DPR,0,0,DPR,0,0);
-  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
-  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
-  // the full set: from the last stage's middle the view pulls back and the set of ten is laid out round the nail
-  const z=sm(seg(f[5],.5,.92));
-  let S=lerp(LA.s,LB.s,m), X=lerp(LA.x,LB.x,m), Y=lerp(LA.y,LB.y,m);S=lerp(S,LZ.s,z);X=lerp(X,LZ.x,z);Y=lerp(Y,LZ.y,z);
-  ctx.save();ctx.translate(X,Y);ctx.scale(S,S);
-  towel(ctx,-7,.62,14,9,-.04);
-  fan(ctx,NAIL,z);
-  hero(ctx,f,time,z);
-  ctx.restore();
-  // daylight from a window up and to the left, and the corners of the picture falling off
-  const lt=ctx.createLinearGradient(0,0,W*.7,H);lt.addColorStop(0,'rgba(255,250,242,.28)');lt.addColorStop(1,'rgba(255,250,242,0)');ctx.fillStyle=lt;ctx.fillRect(0,0,W,H);
-  const R=Math.hypot(W,H)*.62, vg=ctx.createRadialGradient(X,Y-S*.4,R*.35,X,Y-S*.4,R);vg.addColorStop(0,'rgba(110,84,74,0)');vg.addColorStop(1,'rgba(110,84,74,.14)');ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
-  // on a phone the picture sits behind the words until they scroll away
-  if(mobile&&k<1){ctx.fillStyle=`rgba(251,247,244,${(.75*(1-k)).toFixed(3)})`;ctx.fillRect(0,0,W,H);}
-  copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
-  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,f);}
-function target(){const r=hero_.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
-// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
-// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
+const mobile=()=>innerWidth<820;
+function frame(p,time){
+  const P=FLAT?1:p, f=STAGES.map(s=>FLAT?1:seg(p,s.w[0],s.w[1]));
+  film.draw(FLAT?1:AUTO?(time/Math.max(4,film.seconds()))%1:clamp(seg(P,.02,.9)),time);
+  const k=mobile()?seg(p,.01,.05):seg(p,.06,.12);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);const on=FLAT||k>=1;now.classList.toggle('on',on);rest.classList.toggle('on',on);
+  let idx=0;STAGES.forEach((s,i)=>{if(P>=s.w[0])idx=i;});
+  if(idx!==shown){shown=idx;$('#gNum').textContent=idx+1;$('#gTitle').textContent=STAGES[idx].n;$('#gText').textContent=STAGES[idx].c;$('#gToolName').textContent=STAGES[idx].tool;
+    $('#gTool').style.setProperty('--shade',idx>=3?NAIL.col:idx===2?'#F6D6D6':'#D9DEE6');}
+  // base coat, then two coats of colour (the first a little sheer), the art, then the top coat's gloss
+  nails.forEach((n,i)=>{n.querySelector('.bs').style.setProperty('--f',sm(turn(f[2],i)).toFixed(3));
+    n.querySelector('.c1').style.setProperty('--f',sm(turn(seg(f[3],0,.5),i)).toFixed(3));n.querySelector('.c2').style.setProperty('--f',sm(turn(seg(f[3],.5,1),i)).toFixed(3));
+    const a=n.querySelector('.art');if(a)a.style.setProperty('--a',turn(f[4],i)>.5?1:0);n.style.setProperty('--g',sm(turn(f[5],i)).toFixed(3));});
+  // the lamp: on while the top coat cures, counting its sixty seconds down
+  const curing=f[5]>.2&&f[5]<.95&&!FLAT;lamp.classList.toggle('on',curing);cure.textContent=curing?`Curing · ${Math.max(0,Math.round(60*(1-seg(f[5],.2,.95))))}s`:'';
+  const work=clamp((f[0]+f[1]+f[2]+f[3]+f[4]+f[5])/6);$('#kMin').textContent=Math.round(COUNT.mins*work);
+  const c2=(f[2]>=.5?1:0)+(f[3]>=.5?1:0)+(f[3]>=1?1:0)+(f[4]>=1?1:0)+(f[5]>=.5?1:0);$('#kCoats').textContent=Math.min(COUNT.coats,Math.round(c2*COUNT.coats/5));
+  $('#kShade').textContent=f[3]>0?NAIL.shade:'—';$('#kLasts').textContent=P>=STAGES[5].w[0]+.08||FLAT?COUNT.lasts:'—';
+}
 let gLast=-1e9,gForce=90;
-addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
-function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+addEventListener('resize',()=>{gForce=30;film.size();});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){if(AUTO)return false;const r=$('#stage').getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
   if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
 function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
-layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
-if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
 requestAnimationFrame(loop);
 })();
 </script>
@@ -729,4 +665,14 @@ let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(shadeView,1
 })();
 </script>
 
+<script>
+/* the title arrives word by word */
+(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;let k=0;
+ // each word in its own clipped box; a block inside the title (a second line) keeps its place and has its words split too
+ const unit=(box,el)=>{const w=document.createElement('span');w.className='w';el.style.animationDelay=(150+k++*80)+'ms';w.appendChild(el);box.appendChild(w)};
+ const split=box=>{const parts=[...box.childNodes],blk=parts.map(n=>n.nodeType===1&&getComputedStyle(n).display==='block');box.textContent='';
+  parts.forEach((n,j)=>{if(n.nodeType===3)n.textContent.split(/(\s+)/).forEach(x=>{if(!x)return;if(/^\s+$/.test(x)){box.appendChild(document.createTextNode(' '));return}const i=document.createElement('i');i.textContent=x;unit(box,i)});
+   else if(n.nodeType===1){if(blk[j]){box.appendChild(n);if(n.children.length===0)split(n);return}const i=document.createElement('i');i.appendChild(n);unit(box,i)}});};
+ split(h);h.classList.add('split')})();
+</script>
 </body></html>

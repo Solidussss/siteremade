@@ -58,5 +58,14 @@
       }
     }
   ],
-  "photoHero": {"hide":["#fx","#bigtype","#hpWrap","#anc"],"motion":"gloss"}
+  "photoHero": {
+    "hide": [
+      "#fx",
+      "#bigtype",
+      "#hpWrap",
+      "#anc"
+    ],
+    "motion": "gloss",
+    "own": true
+  }
 }

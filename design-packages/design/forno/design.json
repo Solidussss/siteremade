@@ -50,8 +50,8 @@
       "css": "font:400 1000px/1 {family}",
       "fonts": {
         "default": {
-          "url": "https://fonts.googleapis.com/css2?family=Shrikhand&display=swap",
-          "family": "Shrikhand"
+          "url": "https://fonts.googleapis.com/css2?family=Anton&display=swap",
+          "family": "Anton"
         }
       }
     },
@@ -67,5 +67,8 @@
     }
   },
   "guards": [],
-  "photoHero": {"motion":"focus"}
+  "photoHero": {
+    "own": true,
+    "motion": "focus"
+  }
 }

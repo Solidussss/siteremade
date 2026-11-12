@@ -2,6 +2,7 @@
 // formats them, opening hours for the visit card) and the rules the schema can't express (hours, prices, widths of
 // the stretching headings and the phone nav row). Runs at build time only.
 'use strict';
+const film = require('../../engine/film');
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const isTime = (s) => /^([01]\d|2[0-3]):[0-5]\d$/.test(s || '') || s === '24:00';
 const hr = (s) => { const [h, m] = s.split(':').map(Number); return h + m / 60; };
@@ -10,6 +11,7 @@ const num = (v) => String(+v.toFixed(4));
 function derive(c) {
   const money = (n) => c.locale.currency + n.toFixed(2);
   return {
+    film: film.derive(c, null, [214, 150, 96]),
     price0: money(c.drinks[0].price),
     price2: money(c.drinks[2].price),
     milkExtra: money(c.order.milkExtra),

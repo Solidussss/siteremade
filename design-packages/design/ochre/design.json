@@ -105,5 +105,8 @@
       }
     }
   ],
-  "photoHero": {"motion":"focus"}
+  "photoHero": {
+    "motion": "focus",
+    "own": true
+  }
 }

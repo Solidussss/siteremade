@@ -1,8 +1,8 @@
 {
   "fonts": {
     "classic": {
-      "link": "<link href=\"https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Sora:wght@300;400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap\" rel=\"stylesheet\">",
-      "vars": "  --display:'Bebas Neue','Oswald',Impact,'Arial Narrow',sans-serif;\n  --body:'Sora',system-ui,-apple-system,'Segoe UI',sans-serif;\n  --mono:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;",
+      "link": "<link href=\"https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400;1,700&family=Sora:wght@300;400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap\" rel=\"stylesheet\">",
+      "vars": "  --display:'Libre Baskerville',Baskerville,Georgia,serif;\n  --body:'Sora',system-ui,-apple-system,'Segoe UI',sans-serif;\n  --mono:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;",
       "css": "",
       "canvas": "'Bebas Neue','Oswald',Impact,sans-serif",
       "canvasMono": "'Spline Sans Mono',ui-monospace,monospace"
@@ -10,14 +10,14 @@
     "gothic": {
       "link": "<link href=\"https://fonts.googleapis.com/css2?family=League+Gothic&family=Inter+Tight:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap\" rel=\"stylesheet\">",
       "vars": "  --display:'League Gothic','Oswald',Impact,'Arial Narrow',sans-serif;\n  --body:'Inter Tight',system-ui,-apple-system,'Segoe UI',sans-serif;\n  --mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;",
-      "css": "h1,h2,.brand b,.hud-stage,.mname,.ticket h4,.sum .big,.done .code,.info b,.wordmark{text-transform:uppercase}\n",
+      "css": "",
       "canvas": "'League Gothic','Oswald',Impact,sans-serif",
       "canvasMono": "'JetBrains Mono',ui-monospace,monospace"
     },
     "oswald": {
       "link": "<link href=\"https://fonts.googleapis.com/css2?family=Oswald:wght@400&family=Work+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap\" rel=\"stylesheet\">",
       "vars": "  --display:'Oswald',Impact,'Arial Narrow',sans-serif;\n  --body:'Work Sans',system-ui,-apple-system,'Segoe UI',sans-serif;\n  --mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;",
-      "css": "h1,h2,.brand b,.hud-stage,.mname,.ticket h4,.sum .big,.done .code,.info b,.wordmark{text-transform:uppercase}\n",
+      "css": "",
       "canvas": "'Oswald',Impact,sans-serif",
       "canvasMono": "'IBM Plex Mono',ui-monospace,monospace"
     }

@@ -1,6 +1,7 @@
 // Aldane's design-specific build logic: the configurator and spec table as the page script's CFG and SPEC, the text
 // printed and engraved on the drawn watch, and the rules the schema can't express. Runs at build time only.
 'use strict';
+const film = require('../../engine/film');
 const { FILTERS } = require('../../engine/template');
 const { hexRgb, contrast } = require('../../engine/colour');
 // the configurator's options keep their drawn finishes (case metal, dial, strap) in this order
@@ -43,6 +44,7 @@ function derive(c) {
   // the winding demo: the watch's reserve and turns (the original: 72 h from 40 turns, sampled at 31 h)
   const res = c.movement.reserve, turns = c.movement.turns, perTurn = +(res / turns).toFixed(4), start = Math.round(res * 31 / 72);
   return {
+    film: film.derive(c, null, [214, 170, 110]),
     resStart: String(start), resStartText: start.toFixed(1), resTurnsText: (start / perTurn).toFixed(1) + ' / ' + turns,
     perTurn: String(perTurn), resHalf: String(res / 2), tickStep: res > 96 ? '12' : '6', labelStep: res > 96 ? '24' : '12',
     barrelLead: res === 72 ? 'Holds the mainspring: nine turns of it, enough for 72 hours.' : `Holds the mainspring, enough for ${res} hours.`,

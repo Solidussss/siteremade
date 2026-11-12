@@ -1,10 +1,14 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<meta name="description" content="{{hero.caps.0.text|attr}}">
+<script>document.documentElement.classList.add('js');setTimeout(function(){if(!window.__ondo)document.documentElement.classList.remove('js')},3500)</script>
 <title>{{business.name}}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&family=Instrument+Sans:wdth,wght@75..100,400..700&family=Azeret+Mono:wght@400;500;600&display=swap">
 <style>
-/* Layout: a listening room at night. Velvet-plum walls, a VU-amber signal colour for the music,
+/* Layout, v5: the real headphones (the brand's video or photos, or the design's own take) come apart as you scroll,
+   a live analyser running along the floor of the screen to the beat. A listening room at night: velvet-plum walls,
+   a VU-amber signal colour for the music,
    a cool mint for the anti-noise wave, coral for noise. The hero is a pinned live analyser:
    the headphones play a synthesized beat, then a 3D spectrum field, then noise cancelling.
    Deliberately one dark look, like a studio with the lights down. */
@@ -60,19 +64,15 @@ h2 { font-size: clamp(40px, 6.2vw, 96px); }
 @media (max-width: 860px) { .nav ul { display: none; } .snd { margin-left: auto; } }
 @media (max-width: 420px) { .snd .lbl { display: none; } .logo { font-size: 20px; } .nav { gap: 10px; } .cta { padding: 9px 13px; font-size: 13px; } }
 
-/* ---------- hero stage ---------- */
-.hero { height: 430vh; position: relative; }
-.stage { position: sticky; top: 0; height: 100svh; overflow: hidden; background:
-  radial-gradient(120% 70% at 50% 40%, var(--room-2) 0%, var(--room) 70%); }
-#fx { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.bigtype { position: absolute; left: 0; right: 0; top: 44%; transform: translateY(-50%); display: flex; justify-content: center; gap: .02em; flex-wrap: wrap; row-gap: 0;
-  font-family: var(--display); font-weight: 900; font-stretch: 125%; font-size: clamp(120px, 19vw, 300px); line-height: .8; letter-spacing: -.01em; color: transparent;
-  -webkit-text-stroke: 1.5px var(--line-2); pointer-events: none; user-select: none; white-space: nowrap; }
-.bigtype span { display: inline-block; transform-origin: 50% 100%; will-change: transform; }
-.bigtype .brk { flex-basis: 100%; height: 0; }
-.hp-wrap { position: absolute; left: 0; top: 0; width: min(104svh * .64, 46vw, 640px); will-change: transform; transform: translate(50vw, 46svh) translate(-50%, -50%); }
-.hp-wrap svg { width: 100%; height: auto; display: block; overflow: visible; }
-
+/* ---------- hero stage: the real headphones come apart, the analyser runs along the floor of the screen ---------- */
+.hero { position: relative; }
+.stage { position: relative; height: min(100svh, 960px); min-height: 640px; overflow: hidden; background: var(--room); }
+.js:not(.flat) .hero { height: 460vh; }
+.js:not(.flat) .stage { position: sticky; top: 0; height: 100svh; min-height: 0; }
+.stage .poster, #film, #fx { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.stage .poster { object-fit: cover; }
+.tint { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, color-mix(in srgb, var(--room) 70%, transparent) 0%, transparent 30%, transparent 55%, color-mix(in srgb, var(--room) 92%, transparent) 100%); }
+#fx { z-index: 3; pointer-events: none; }
 .rail { position: absolute; z-index: 5; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 74px); display: flex; gap: 6px; width: min(560px, calc(100% - 2 * var(--gutter))); }
 .rail div { flex: 1; min-width: 0; display: grid; gap: 6px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); transition: color .3s; }
 .rail div.on { color: var(--ink); }
@@ -87,15 +87,15 @@ h2 { font-size: clamp(40px, 6.2vw, 96px); }
 .hud .live.on i { background: var(--amber); box-shadow: 0 0 10px var(--amber); }
 .hud .db b { color: var(--ink); font-weight: 600; }
 
-.caption { position: absolute; z-index: 6; left: var(--gutter); bottom: calc(env(safe-area-inset-bottom, 0px) + 32px); width: min(470px, calc(100% - 2 * var(--gutter))); }
+.caption { position: absolute; z-index: 6; left: var(--gutter); top: calc(env(safe-area-inset-top, 0px) + 170px); width: min(520px, calc(100% - 2 * var(--gutter))); }
 .cap { display: grid; gap: 12px; transition: opacity .3s var(--out), transform .5s var(--out); }
-.cap + .cap { position: absolute; left: 0; bottom: 0; width: 100%; }
+.cap + .cap { position: absolute; left: 0; top: 0; width: 100%; }
 .cap:not(.on) { opacity: 0; transform: translateY(14px); pointer-events: none; }
 .cap h2 { font-size: clamp(34px, 3.9vw, 60px); text-shadow: 0 2px 30px var(--room); }
 .cap p { color: var(--dim); max-width: 40ch; font-size: 16px; text-shadow: 0 1px 14px var(--room); }
-.scrim { position: absolute; z-index: 4; left: 0; right: 0; bottom: 0; height: 42%; pointer-events: none; background: linear-gradient(to top, var(--room) 8%, color-mix(in srgb, var(--room) 70%, transparent) 45%, transparent); }
+.scrim { position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; height: 30%; pointer-events: none; background: linear-gradient(to top, var(--room) 8%, color-mix(in srgb, var(--room) 70%, transparent) 45%, transparent); }
 
-.play { position: absolute; z-index: 7; right: var(--gutter); bottom: calc(env(safe-area-inset-bottom, 0px) + 32px); display: flex; align-items: center; gap: 16px; padding: 10px 26px 10px 10px; border-radius: 999px; cursor: pointer;
+.play { position: absolute; z-index: 7; right: var(--gutter); top: calc(env(safe-area-inset-top, 0px) + 170px); display: flex; align-items: center; gap: 16px; padding: 10px 26px 10px 10px; border-radius: 999px; cursor: pointer;
   background: color-mix(in srgb, var(--room) 55%, transparent); border: 1.5px solid var(--amber); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); text-align: left; transition: transform .4s var(--spring); }
 .play:hover { transform: scale(1.03); }
 .play .disc { position: relative; width: 76px; height: 76px; border-radius: 50%; background: var(--amber); display: grid; place-items: center; flex: none; }
@@ -111,7 +111,7 @@ h2 { font-size: clamp(40px, 6.2vw, 96px); }
 .play .t span { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
 
 /* ANC panel inside the stage */
-.anc { position: absolute; z-index: 5; left: 52%; right: var(--gutter); top: 25%; bottom: 23%; display: grid; grid-template-rows: auto 1fr 1fr 1fr auto; gap: 8px; padding: 18px 20px; border: 1px solid var(--line-2); border-radius: 18px;
+.anc { position: absolute; z-index: 5; left: 58%; right: var(--gutter); top: 30%; bottom: 30%; display: grid; grid-template-rows: auto 1fr 1fr 1fr auto; gap: 8px; padding: 18px 20px; border: 1px solid var(--line-2); border-radius: 18px;
   background: color-mix(in srgb, var(--room) 72%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); opacity: 0; transform: translateY(30px); pointer-events: none; }
 .anc .top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
 .anc .top b { color: var(--anti); font-weight: 600; }
@@ -133,24 +133,31 @@ h2 { font-size: clamp(40px, 6.2vw, 96px); }
 .leds .scale { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; color: var(--faint); }
 
 @media (max-width: 760px) {
-  .hp-wrap { width: min(86vw, 52svh); }
-  .bigtype { top: 37%; font-size: 31vw; line-height: .78; width: 100%; }
   .rail { top: calc(env(safe-area-inset-top, 0px) + 66px); }
   .hud { top: calc(env(safe-area-inset-top, 0px) + 104px); font-size: 10px; }
-  .caption { bottom: calc(env(safe-area-inset-bottom, 0px) + 112px); }
+  .caption { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 150px); }
   .cap { gap: 8px; }
   .cap h2 { font-size: clamp(30px, 8.6vw, 40px); }
   .cap p { font-size: 15px; }
-  .play { left: var(--gutter); right: var(--gutter); bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); padding: 8px 18px 8px 8px; gap: 14px; }
+  .play { left: var(--gutter); right: var(--gutter); top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); padding: 8px 18px 8px 8px; gap: 14px; }
   .play .disc { width: 64px; height: 64px; }
   .play .t b { font-size: 21px; }
-  .anc { left: var(--gutter); right: var(--gutter); top: 33%; bottom: auto; height: 38%; padding: 12px 14px; gap: 4px; grid-template-rows: auto 1fr 1fr 1fr auto; }
+  .anc { left: var(--gutter); right: var(--gutter); top: 18%; bottom: auto; height: 34%; padding: 12px 14px; gap: 4px; grid-template-rows: auto 1fr 1fr 1fr auto; }
   .lane { min-height: 0; font-size: 10px; }
   .meter { gap: 12px; padding-top: 6px; }
   .meter .num { font-size: 40px; }
   .leds .row { height: 12px; gap: 2px; }
   .stage[data-stage="2"] .cap.on p { display: none; }
 }
+
+.chipcard { position: relative; z-index: 2; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: min(100%, 620px); aspect-ratio: 4 / 3; margin: auto; box-shadow: 0 30px 60px -30px rgba(0,0,0,.6), 0 0 0 1px var(--line); border-radius: 10px; overflow: hidden; }
+.chipcard div { background: var(--c); display: flex; flex-direction: column; justify-content: flex-end; gap: 3px; padding: 12px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--t); transition: background-color .6s var(--out); }
+.chipcard div b { font-family: var(--display); font-size: 17px; letter-spacing: 0; text-transform: none; }
+.split .w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom:.22em;margin-bottom:-.14em }
+.split .w{padding-right:.1em;margin-right:-.1em}
+.split .w > i { display: inline-block; font-style: normal; animation: rise .9s var(--out) both; }
+@keyframes rise { from { transform: translateY(108%); } }
+.js:not(.flat) [data-rv]:not(.in) { opacity: 0; transform: translateY(26px); }
 
 /* ---------- shared section ---------- */
 .sec { position: relative; padding-block: clamp(84px, 11vw, 160px); padding-inline: var(--gutter); border-top: 1px solid var(--line); }
@@ -294,10 +301,11 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
 <main>
 <section class="hero" id="top" aria-label="{{$.fullName|attr}} live analyser">
   <div class="stage" id="stage" data-stage="0">
+{{#if $.film.poster}}    <img class="poster" src="{{$.film.poster|attr}}" alt="" aria-hidden="true">
+{{/if}}    <canvas id="film" role="img" aria-label="{{$.heroAlt|attr}}"></canvas>
+    <div class="tint" aria-hidden="true"></div>
     <canvas id="fx" aria-hidden="true"></canvas>
     <h1 class="sr">{{$.fullName}} {{product.kind}}</h1>
-    <div class="bigtype" id="bigtype" aria-hidden="true">{{$.bigtype|raw}}</div>
-    <div class="hp-wrap" id="hpWrap"></div>
 
     <div class="rail" aria-hidden="true">
       <div class="on"><span>01 Drivers</span><i><b></b></i></div>
@@ -331,7 +339,7 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
     <div class="caption">
       <div class="cap on">
         <span class="eyebrow"><i></i>01 · Drivers</span>
-        <h2>{{hero.caps.0.title}}</h2>
+        <h2 data-split>{{hero.caps.0.title}}</h2>
         <p>{{hero.caps.0.text}}</p>
       </div>
       <div class="cap">
@@ -391,8 +399,7 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
 <section class="sec cw" id="colours" aria-labelledby="cwTitle">
   <div class="cw-name" id="cwName" aria-hidden="true">{{colourways.0.name|upper}}</div>
   <div class="cw-stage" id="cwStage">
-    <div class="cw-plinth"></div>
-    <div class="cw-hp" id="cwHp"></div>
+    <div class="chipcard" id="chipcard" role="img" aria-label="The colours of {{colourways.0.name|attr}}"></div>
   </div>
   <div class="cw-side">
     <div class="sec-head">
@@ -536,12 +543,7 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
     ${cup(p, 150, 'L')}${cup(p, 490, 'R')}
   </svg>`;
   }
-  const hpWrap = $('#hpWrap');
-  hpWrap.innerHTML = hpSVG('h', {{$.heroAlt|js}});
-  $('#cwHp').innerHTML = hpSVG('c', {{$.cwAlt|js}});
-  const heroSVG = hpWrap.querySelector('svg');
-  const cups = [...hpWrap.querySelectorAll('.cup')], drvs = [...hpWrap.querySelectorAll('.drv')], leds = [...hpWrap.querySelectorAll('.led')];
-  const CUPX = [150, 490], CUPY = 392;
+  /* (the hero is the film now; the drawing is gone) */
 
   /* ================= colourways ================= */
   const COLOURS = [
@@ -556,9 +558,14 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
     swWrap.appendChild(b);
     const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; rsColour.appendChild(o);
   });
+  const chipcard = $('#chipcard'), PARTS = [['shell', 'Shell'], ['hi', 'Shell, light'], ['lo', 'Shell, deep'], ['pad', 'Cushion'], ['padHi', 'Cushion, light'], ['metal', 'Metal'], ['metalLo', 'Metal, deep'], ['label', 'Label']];
+  const inkOn = h => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return '#f5ecf2'; const n = parseInt(m[1], 16), l = (.2126 * (n >> 16) + .7152 * (n >> 8 & 255) + .0722 * (n & 255)) / 255; return l > .55 ? '#170d1c' : '#f5ecf2'; };
+  PARTS.forEach(([k, label]) => { const d = document.createElement('div'); d.dataset.k = k; d.innerHTML = `<b>${label}</b><span></span>`; chipcard.appendChild(d); });
   function setColour(i) {
     const c = COLOURS[i], root = document.documentElement.style;
     for (const k in c.v) root.setProperty('--hp-' + k, c.v[k]);
+    chipcard.querySelectorAll('div').forEach(d => { const v = c.v[d.dataset.k]; d.style.setProperty('--c', v); d.style.setProperty('--t', inkOn(v)); d.querySelector('span').textContent = String(v || '').toUpperCase(); });
+    chipcard.setAttribute('aria-label', 'The colours of ' + c.name);
     $$('.sw').forEach((b, j) => b.setAttribute('aria-checked', j === i ? 'true' : 'false'));
     $('#cwName').textContent = c.name.toUpperCase();
     rsColour.value = c.id;
@@ -571,17 +578,6 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
     setColour(n); $$('.sw')[n].focus();
   });
   rsColour.addEventListener('change', () => setColour(COLOURS.findIndex(c => c.id === rsColour.value)));
-  // gentle 3D tilt on the colourway stage
-  const cwStage = $('#cwStage'), cwHp = $('#cwHp');
-  if (!RM) {
-    cwStage.addEventListener('pointermove', e => {
-      const r = cwStage.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
-      cwHp.style.transform = `rotateY(${x * 22}deg) rotateX(${-y * 14}deg)`;
-    });
-    cwStage.addEventListener('pointerleave', () => cwHp.style.transform = '');
-  }
-
   /* ================= EQ state ================= */
   const BANDS = [
     { name: 'Bass', type: 'lowshelf', f: 110, g: 3, min: 40, max: 250 },
@@ -816,8 +812,14 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
   const specAt = (f, j) => (AU.on ? liveAt(f) : simAt(f, j));
 
   /* ================= hero stage ================= */
+  const STILL = /[?&]still\b/.test(location.search), FLAT = RM || STILL;
+  if (FLAT) document.documentElement.classList.add('flat');
+  {{$.film.runtime|raw}}
+  const film = SRFilm($('#film'), {{$.film.json|raw}}, { flat: FLAT, fy: .45 });
+  let inFrame = false; try { inFrame = window.self !== window.top; } catch (e) { inFrame = true; }
+  let AUTO = inFrame && scrollY < 1 && !FLAT;
+  if (AUTO) addEventListener('scroll', () => { if (AUTO && scrollY >= 1) { AUTO = false; film.poke(); } }, { passive: true });
   const stage = $('#stage'), hero = $('#top'), fx = $('#fx'), g = fx.getContext('2d');
-  const letters = $$('#bigtype span');
   const caps = $$('.cap'), railDivs = $$('.rail > div'), railBars = $$('.rail i b');
   const ancEl = $('#anc'), lanes = $$('.lane'), ledRow = $('#leds');
   for (let i = 0; i < 24; i++) { const li = document.createElement('i'); const db = 20 + (i + .5) * (80 / 24); if (db > 70) li.className = 'hot'; else if (db > 45) li.className = 'mid'; ledRow.appendChild(li); }
@@ -834,7 +836,7 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
   function resize() {
     DPR = Math.min(devicePixelRatio || 1, matchMedia('(pointer:coarse)').matches?1.5:2);
     const r = stage.getBoundingClientRect(); W = r.width; H = r.height;
-    fx.width = Math.round(W * DPR); fx.height = Math.round(H * DPR);
+    fx.width = Math.round(W * DPR); fx.height = Math.round(H * DPR); film.size();
     eqResize();
   }
   addEventListener('resize', resize);
@@ -954,6 +956,19 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
     });
   }
 
+  function drawBars(level, ancIn, cancel) {
+    const n = COLS, gap = W < 760 ? 3 : 6, x0 = W < 760 ? 16 : Math.max(16, W * .04), bw = (W - 2 * x0 - gap * (n - 1)) / n, base = H - (W < 760 ? 12 : 22), maxH = H * (W < 760 ? .14 : .22);
+    const squash = 1 - cancel * .85 * ancIn;
+    for (let c = 0; c < n; c++) {
+      const v = cur[c] * squash, h = Math.max(3, v * maxH), x = x0 + c * (bw + gap);
+      const gr = g.createLinearGradient(0, base - h, 0, base);
+      gr.addColorStop(0, ancIn > .5 ? C.anti : C.amber); gr.addColorStop(1, ancIn > .5 ? 'rgba(127,227,208,.25)' : C.amber2);
+      g.fillStyle = gr; g.globalAlpha = .9; g.fillRect(x, base - h, bw, h);
+      g.globalAlpha = .18; g.fillRect(x, base + 3, bw, Math.min(10, h * .2));
+    }
+    g.globalAlpha = 1;
+    g.fillStyle = C.line; g.fillRect(x0, base + 1, W - 2 * x0, 1);
+  }
   function setStage(n) {
     if (n === stageNo) return; stageNo = n;
     stage.dataset.stage = n;
@@ -1000,25 +1015,9 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
     sndBars.forEach((b, i) => b.style.height = (AU.on ? 3 + cur[i * 7 + 1] * 9 : 4) + 'px');
 
     if (heroVisible) {
-      const L = W < 760 ? 'm' : 'd';
-      const [kx, ky, ks] = kfAt(KF[L], p), F = kfAt(FF[L], p);
       const ancIn = ss(.57, .66, p), cancel = ss(.68, .94, p);
       const level = RM ? .2 : clamp(Math.max(vis.kick * .85, lowE * .9));
-      const breathe = RM ? 0 : Math.sin(nowS * 1.3) * .01;
-      hpWrap.style.transform = `translate(${kx * W}px, ${ky * H}px) translate(-50%, -50%) scale(${ks * (1 + breathe + level * .025)})`;
-      // ear cups pump with the low end, drivers push out harder
-      cups.forEach((cp, i) => { const s = 1 + level * .045; cp.setAttribute('transform', `translate(${CUPX[i]} ${CUPY}) scale(${s}) translate(${-CUPX[i]} ${-CUPY})`); });
-      drvs.forEach((d, i) => { const s = 1 + level * .11; d.setAttribute('transform', `translate(${CUPX[i]} ${CUPY}) scale(${s}) translate(${-CUPX[i]} ${-CUPY})`); });
-      leds.forEach(l => l.style.fill = ancIn > .5 ? C.anti : '');
-      // kicking type
-      letters.forEach((el, i) => {
-        if (RM) return;
-        let a = nowS - vis.kickAt - i * .024; if (a < 0) a += BEAT;
-        const e = Math.exp(-a / .11);
-        el.style.transform = `translateY(${-e * 5}%) scale(${1 - e * .03}, ${1 + e * .17})`;
-        el.style.color = `color-mix(in srgb, ${C.amber} ${Math.round(e * 88 * (1 - ancIn * .7))}%, transparent)`;
-      });
-      $('#bigtype').style.opacity = 1 - ancIn * .55 - eio(seg(p, .27, .42)) * .25;
+      film.draw(FLAT ? 1 : AUTO ? (nowS / Math.max(4, film.seconds())) % 1 : p, nowS);
       // stage + rail
       setStage(p < .3 ? 0 : p < .58 ? 1 : 2);
       railBars[0].style.width = seg(p, 0, .3) * 100 + '%';
@@ -1041,13 +1040,10 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
       }
       if (AU.on && AU.noiseGain) AU.noiseGain.gain.setTargetAtTime(ancIn * (1 - cancel) * .42, AU.ctx.currentTime, .06);
 
-      // draw
+      // draw: the analyser along the floor of the screen, then the anti-noise lanes
       g.setTransform(DPR, 0, 0, DPR, 0, 0);
       g.clearRect(0, 0, W, H);
-      const dp = driverPos();
-      drawGlow(dp, level * (1 - ancIn * .5));
-      drawField(F, nowS);
-      drawRings(nowS, dp, ancIn);
+      drawBars(level, ancIn, cancel);
       drawANC(nowS, ancIn, cancel);
     } else if (AU.on && AU.noiseGain) AU.noiseGain.gain.setTargetAtTime(0, AU.ctx.currentTime, .06);
     requestAnimationFrame(frame);
@@ -1191,10 +1187,21 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
 
   /* ================= boot ================= */
   setColour(0); calcBattery(); resize(); syncEQ(); syncSoundUI();
+  window.__ondo = 1;
   // prefill the spectrum history so the field is never empty in the first frame
   for (let r = 0; r < ROWS; r++) { fireVis(r * 2, 0); for (let c = 0; c < COLS; c++) hist[r][c] = simAt(colF[c], Math.random()); }
   requestAnimationFrame(frame);
 })();
 </script>
 
+<script>
+/* the title arrives word by word */
+(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;let k=0;
+ // each word in its own clipped box; a block inside the title (a second line) keeps its place and has its words split too
+ const unit=(box,el)=>{const w=document.createElement('span');w.className='w';el.style.animationDelay=(150+k++*80)+'ms';w.appendChild(el);box.appendChild(w)};
+ const split=box=>{const parts=[...box.childNodes],blk=parts.map(n=>n.nodeType===1&&getComputedStyle(n).display==='block');box.textContent='';
+  parts.forEach((n,j)=>{if(n.nodeType===3)n.textContent.split(/(\s+)/).forEach(x=>{if(!x)return;if(/^\s+$/.test(x)){box.appendChild(document.createTextNode(' '));return}const i=document.createElement('i');i.textContent=x;unit(box,i)});
+   else if(n.nodeType===1){if(blk[j]){box.appendChild(n);if(n.children.length===0)split(n);return}const i=document.createElement('i');i.appendChild(n);unit(box,i)}});};
+ split(h);h.classList.add('split')})();
+</script>
 </body></html>

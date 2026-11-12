@@ -6029,7 +6029,7 @@ function demoVideoSet(name) {
   const frames = fr && fr.count > 1 ? `/designs/demo-video/${name}/f/{n}.jpg?v=${v}|${fr.count}|${fr.w}|${fr.h}|${Math.max(1, Math.round(fr.seconds || 10))}` : null;
   return { key: 'video|' + st.madeAt + (frames ? '|f' + fr.count : ''), photos: [{ slot: 'main', url: `/designs/demo-video/${name}/poster.jpg?v=${v}` }], video: `/designs/demo-video/${name}/hero.mp4?v=${v}`, frames };
 }
-app.get('/designs/demo/:design', (req, res) => { const name = String(req.params.design); const html = designSites.demoHtml(name, demoVideoSet(name) || demoSet(name)); if (!html) return res.status(404).type('text/plain').send('Not found'); res.setHeader('Cache-Control', 'no-cache'); res.type('html').send(siteRequests.withPreview(html)); });
+app.get('/designs/demo/:design', (req, res) => { const name = String(req.params.design); const html = designSites.demoHtml(name, demoVideoSet(name) || demoSet(name)); if (!html) return res.status(404).type('text/plain').send('Not found'); res.setHeader('Cache-Control', 'no-cache'); res.setHeader('X-Robots-Tag', 'noindex'); res.type('html').send(siteRequests.withPreview(html)); });
 app.get('/designs/demo-photo/:design/:slot.jpg', (req, res) => {
   const ph = db.demoPhotos ? db.demoPhotos.photo(String(req.params.design), String(req.params.slot)) : null; if (!ph) return res.status(404).end();
   res.setHeader('Cache-Control', 'public, max-age=604800, immutable'); res.type('image/jpeg').send(Buffer.from(ph.data));
@@ -6161,7 +6161,7 @@ app.post('/api/designs/sites/:id/undo', requireAuth, requireSameOrigin, requireD
 app.get('/api/designs/sites/:id/preview', requireAuth, requireDesignOwner, (req, res) => {
   const row = ownDesignSite(req, res); if (!row) return;
   if (!row.html) return res.status(404).type('text/plain').send('Not built yet');
-  res.setHeader('Cache-Control', 'no-store'); res.type('html').send(siteRequests.withPreview(row.html));
+  res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Robots-Tag', 'noindex'); res.type('html').send(siteRequests.withPreview(row.html));
 });
 // the public page of a published site
 app.get('/s/:id', (req, res) => {

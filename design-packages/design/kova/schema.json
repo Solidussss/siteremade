@@ -1,5 +1,5 @@
 {
-  "about": "What a sneaker brand may change in the KOVA design. Everything not listed here is protected: the drawn shoe and its six-layer exploded scroll (laces, tongue, upper, plate, foam, outsole), the callout positions, the foam press physics, the size conversions, the countdown, layout, spacing, type scale, breakpoints and all interaction code.",
+  "about": "What a sneaker brand may change in the KOVA design. Everything not listed here is protected: the filmed exploded view and its six-layer callouts (laces, tongue, upper, plate, foam, outsole), the callout positions, the foam press physics, the size conversions, the countdown, layout, spacing, type scale, breakpoints and all interaction code.",
   "text": {
     "business.name": [
       3,
@@ -166,7 +166,7 @@
   },
   "rules": [
     "Text may not contain < > { } or line breaks.",
-    "The shoe is a fixed drawing of a running trainer that separates into six layers, in this order: laces, tongue, upper, plate, foam (midsole), outsole. layers are their callout title, short name (phones) and one spec line.",
+    "The hero films a running trainer separating into six layers, in this order: laces, tongue, upper, plate, foam (midsole), outsole. layers are their callout title, short name (phones) and one spec line.",
     "Four colorways, each with seven shoe colours (upper, overlays, midsole, outsole, laces, accent, tongue) and a pale section background.",
     "The drop counts down to the next drop.day at drop.time (local time).",
     "Colorway names are measured: the big faded name behind the shoe (22vw, capitals) must fit the page width."

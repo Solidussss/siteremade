@@ -1,11 +1,12 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>{{business.name}}</title>
+<meta name="description" content="{{hero.lede|attr}}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,500;0,600;1,500&family=Manrope:wght@400;500;600;700&family=Space+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
-/* Layout: a skincare brand's shop. One pinned product shot where the serum is made, sealed and applied as you scroll,
-   down to a drop sinking into skin and four weeks later; then what a buyer needs: their routine, what's inside, and the
+/* Layout: a skincare brand's shop. The real bottle is filled and capped on screen as you scroll (the brand's own video
+   or photos), headlined like a campaign, while the formula label below fills active by active; then what a buyer needs: their routine, what's inside, and the
    shop. */
 :root{
   color-scheme:light;
@@ -58,47 +59,62 @@ p{margin:0}
 @media (max-width:980px){.nav ul{display:none}.bagbtn{margin-left:auto}}
 @media (max-width:560px){.nav .btn{display:none}.brand{font-size:23px}}
 
-/* hero: the studio */
+/* hero: the real bottle, a campaign headline over it, and the formula label filling below */
 .hero{position:relative;height:560vh}
 .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--clay)}
-#shot{position:absolute;inset:0;width:100%;height:100%;display:block}
-.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 112px);max-width:520px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
-.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(244,237,230,.94),rgba(244,237,230,.74) 55%,rgba(244,237,230,0));pointer-events:none}
-.hero h1{font-size:clamp(3rem,min(6vw,9.4vh),6rem)}
-.hero h1 em{display:block;color:var(--accent-text)}
-.lede{color:var(--ink-2);max-width:42ch;font-size:clamp(16px,1.3vw,18px)}
-.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
-.label{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 2*var(--gut)));padding:18px 20px;background:var(--sheet);border-radius:14px;box-shadow:0 24px 60px -30px rgba(42,37,34,.45),0 0 0 1px rgba(42,37,34,.05)}
-.label .row{display:flex;justify-content:space-between;gap:10px;font:400 11px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.label .when{color:var(--accent-text)}
-.label h3{font-size:clamp(28px,2.6vw,36px);margin-top:10px;font-style:italic}
-.label p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.1em}
-.dots{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:14px 0 0;padding:0;list-style:none}
-.dots li{position:relative;height:3px;border-radius:2px;background:var(--clay-2);overflow:hidden}
-.dots li::after{content:"";position:absolute;inset:0;transform-origin:0 50%;transform:scaleX(var(--f,0));background:var(--accent)}
-.facts{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;background:rgba(255,251,247,.9);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:14px;box-shadow:0 24px 60px -30px rgba(42,37,34,.45),0 0 0 1px rgba(42,37,34,.05);overflow:hidden}
-.facts div{padding:12px 16px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
-.facts div:nth-child(2n){border-right:0}
-.facts div:nth-child(n+3){border-bottom:0}
-.facts dt{font:400 10.5px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.facts dd{margin:6px 0 0;font:500 28px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
-.facts dd small{font:400 12px var(--f-mono);color:var(--muted);margin-left:4px}
-.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:400 12px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none}
-.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+#shot{display:none}
+.stage .poster,#film{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.stage .poster{object-fit:cover}
+.veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(70% 46% at 50% 14%,rgba(244,237,230,.9),rgba(244,237,230,.55) 55%,rgba(244,237,230,0)),linear-gradient(0deg,rgba(244,237,230,.75),rgba(244,237,230,0) 34%)}
+.hero-copy{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 96px);width:min(760px,calc(100% - 2*var(--gut)));transform:translateX(-50%);z-index:3;display:grid;justify-items:center;text-align:center;gap:16px;will-change:transform,opacity}
+.hero h1{font-size:clamp(3rem,min(6.6vw,10vh),6.6rem)}
+.hero h1 em{color:var(--accent-text)}
+.lede{color:var(--ink-2);max-width:48ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+.split .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.22em;margin-bottom:-.14em}
+.split .w{padding-right:.1em;margin-right:-.1em}
+.split .w>i{display:inline-block;font-style:inherit;animation:wrise .9s cubic-bezier(.16,1,.3,1) both}
+@keyframes wrise{from{transform:translateY(108%)}}
+.hint{position:absolute;z-index:4;left:50%;bottom:calc(206px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:400 11px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:10px;pointer-events:none}
+.hint i{display:block;width:1px;height:22px;background:linear-gradient(var(--muted),transparent);animation:cue 1.6s ease-in-out infinite}
 @keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
+/* the campaign line: each step's name, set big and italic where the title was */
+.fcap{position:absolute;z-index:3;left:50%;top:calc(env(safe-area-inset-top,0px) + 92px);width:min(760px,calc(100% - 2*var(--gut)));transform:translateX(-50%);text-align:center;display:grid;justify-items:center;gap:10px;opacity:0;visibility:hidden;transition:opacity .45s,visibility .45s}
+.fcap.on{opacity:1;visibility:visible}
+.fcap .k{font:400 11px/1.2 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent-text)}
+.fcap h2{font:italic 500 clamp(3rem,min(6.4vw,10vh),6.4rem)/1 var(--f-display)}
+.fcap h2.in{animation:capin .7s cubic-bezier(.16,1,.3,1) both}
+@keyframes capin{from{opacity:0;transform:translateY(.25em);filter:blur(6px)}}
+.fcap p{color:var(--ink-2);max-width:44ch;font-size:clamp(15px,1.2vw,17px);min-height:3.2em}
+/* the formula label: a band per active, as wide as its share, filling as it's poured in */
+.fml{position:absolute;z-index:4;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(760px,calc(100% - 2*var(--gut)));padding:16px 20px 14px;background:rgba(255,251,247,.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:16px;box-shadow:0 24px 60px -30px rgba(42,37,34,.45),0 0 0 1px rgba(42,37,34,.06)}
+.fml-hd{display:flex;justify-content:space-between;gap:10px;font:400 10.5px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.fml-hd b{color:var(--accent-text);font-weight:400}
+.fbar{display:flex;gap:4px;margin-top:12px}
+.fbar .act{flex:var(--w) 1 0;min-width:0}
+.fbar .act i{display:block;height:10px;border-radius:5px;background:rgba(42,37,34,.08);overflow:hidden;position:relative}
+.fbar .act i::after{content:"";position:absolute;inset:0;background:var(--c);box-shadow:inset 0 -2px 0 rgba(0,0,0,.08);transform-origin:0 50%;transform:scaleX(var(--f,0))}
+.flegend{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px}
+.flegend span{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2);opacity:.42;transition:opacity .3s}
+.flegend span::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+.flegend span b{font:400 11px var(--f-mono);color:var(--accent-text)}
+.flegend span.in{opacity:1}
+.fread{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:12px 0 0;padding-top:12px;border-top:1px solid var(--line)}
+.fread dt{font:400 10px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.fread dd{margin:5px 0 0;font:500 26px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.fread dd small{font:400 11px var(--f-mono);color:var(--muted);margin-left:3px}
 @media (max-width:820px){
-  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 84px);max-width:none;right:var(--gut);gap:14px}
+  .veil{background:radial-gradient(120% 40% at 50% 12%,rgba(244,237,230,.92),rgba(244,237,230,.5) 60%,rgba(244,237,230,0)),linear-gradient(0deg,rgba(244,237,230,.8),rgba(244,237,230,0) 40%)}
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 80px);gap:12px}
   .hero .acts{display:none}
-  .facts{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:repeat(4,minmax(0,1fr));bottom:calc(186px + env(safe-area-inset-bottom,0px))}
-  .facts div{padding:9px 10px;border-bottom:0}
-  .facts div:nth-child(2n){border-right:1px solid var(--line)}
-  .facts div:last-child{border-right:0}
-  .facts dt{font-size:9px;letter-spacing:.04em}
-  .facts dd{font-size:clamp(18px,5vw,22px)}
-  .facts dd small{display:none}
-  .label{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 16px}
-  .label p{font-size:14px;min-height:4.4em}
   .hint{display:none}
+  .fcap{top:calc(env(safe-area-inset-top,0px) + 78px)}
+  .fcap h2{font-size:clamp(2.4rem,11vw,3.2rem)}
+  .fcap p{font-size:14px}
+  .fml{padding:12px 14px 10px;border-radius:12px}
+  .flegend{gap:4px 12px}
+  .flegend span{font-size:11.5px}
+  .fread dd{font-size:20px}
 }
 
 /* sections */
@@ -215,27 +231,30 @@ footer{background:var(--ink);color:var(--clay);padding:clamp(70px,9vw,120px) var
 </nav>
 
 <main>
-<section class="hero" id="top" aria-label="The serum made, sealed and applied, scroll to run it">
+<section class="hero" id="top" aria-label="The serum made, sealed and applied; scroll to run it">
   <div class="stage" id="stage">
     <canvas id="shot" aria-hidden="true"></canvas>
+{{#if $.film.poster}}    <img class="poster" src="{{$.film.poster|attr}}" alt="" aria-hidden="true">
+{{/if}}    <canvas id="film" role="img" aria-label="A bottle of {{brand.name|attr}} serum filled and capped with a dropper"></canvas>
+    <div class="veil" aria-hidden="true"></div>
     <div class="hero-copy" id="heroCopy">
       <p class="eyebrow">{{hero.eyebrow}}</p>
       <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
       <p class="lede">{{hero.lede}}</p>
       <div class="acts"><a class="btn" href="#shop">{{hero.cta}}</a><a class="btn ghost" href="#routine">{{hero.cta2}}</a></div>
     </div>
+    <div class="fcap" id="fcap" aria-live="polite"><span class="k" id="cK">Step 1 of 6</span><h2 id="cN">{{stages.0.n}}</h2><p id="cT">{{stages.0.c}}</p></div>
     <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
-    <dl class="facts" id="facts" aria-live="off">
-      <div><dt>Actives</dt><dd id="xAct">0<small>%</small></dd></div>
-      <div><dt>pH</dt><dd id="xPh">—</dd></div>
-      <div><dt>In the bottle</dt><dd id="xMl">0<small>ml</small></dd></div>
-      <div><dt>Day</dt><dd id="xDay">0</dd></div>
-    </dl>
-    <div class="label" id="label" aria-live="polite">
-      <div class="row"><span>Batch <b id="lBatch">{{batch.ref}}</b> · Step <b id="lNum">1</b> of 6</span><span class="when" id="lWhen">{{stages.0.n}}</span></div>
-      <h3 id="lTitle">{{stages.0.n}}</h3>
-      <p id="lText">{{stages.0.c}}</p>
-      <ol class="dots" id="dots" aria-hidden="true"></ol>
+    <div class="fml" id="fml">
+      <div class="fml-hd"><span>Batch <b>{{batch.ref}}</b> · the formula</span><span id="fStep">{{stages.0.n}}</span></div>
+      <div class="fbar" id="fbar" aria-hidden="true"></div>
+      <div class="flegend" id="flegend"></div>
+      <dl class="fread">
+        <div><dt>Actives</dt><dd id="xAct">0<small>%</small></dd></div>
+        <div><dt>pH</dt><dd id="xPh">—</dd></div>
+        <div><dt>In the bottle</dt><dd id="xMl">0<small>ml</small></dd></div>
+        <div><dt>Day</dt><dd id="xDay">0</dd></div>
+      </dl>
     </div>
   </div>
 </section>
@@ -338,6 +357,7 @@ const GLASS={{batch.glass|upper|js}};           // the bottle's tinted glass
 const ACCENT='{{A:#A9506A}}';
 
 /* ============ BOTTLES (shared with the shop and the routine) ============ */
+const DPR=Math.min(devicePixelRatio||1,2);
 // kind: dropper | pump | jar | tube; fill 0..1 with layers [{col, frac}] from the bottom
 // glass: tinted, darker where it's thickest at the edges, a heavy base, the studio light's two reflections down the side
 function glassBody(c,path,x0,x1,y0,y1,glass){const g=c.createLinearGradient(x0,0,x1,0);g.addColorStop(0,rgba(glass,.62));g.addColorStop(.12,rgba(glass,.3));g.addColorStop(.5,rgba(glass,.18));g.addColorStop(.88,rgba(glass,.32));g.addColorStop(1,rgba(glass,.66));c.fillStyle=g;c.fill(path);
@@ -388,115 +408,47 @@ function shine(c,x,y,h,s){const g=c.createLinearGradient(x,0,x+s*.05,0);g.addCol
   const g2=c.createLinearGradient(x+s*.08,0,x+s*.1,0);g2.addColorStop(0,'rgba(255,255,255,0)');g2.addColorStop(.5,'rgba(255,255,255,.3)');g2.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=g2;c.fillRect(x+s*.08,y+h*.1,s*.02,h*.7);}
 window.SR_bottle=(c,cx,base,h,o)=>bottle(0,c,cx,base,h,o);
 
-/* ============ THE STUDIO ============ */
-const cv=$('#shot'), ctx=cv.getContext('2d');
-let W=0,H=0,DPR=1,mobile=false,G={};
-function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
-  // the bottle starts centre stage and steps aside (off the screen on a phone) when the skin window comes in
-  G=mobile?{h:Math.min(H*.3,W*.66),bx0:W*.5,bx1:-W*.9,base:H*.64,skin:[W*.06,H*.3,W*.88,H*.32]}:{h:Math.min(H*.56,W*.33),bx0:W*.68,bx1:W*.5,base:H*.78,skin:[W*.64,H*.3,W*.3,H*.46]};G.bx=G.bx0;last=-1;}
-function sweep(p,time){const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#F7F1EB');g.addColorStop(.7,'#EFE5DB');g.addColorStop(1,'#E6D9CD');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  // a soft disc of light behind the product
-  const cx=G.bx, cy=mobile?H*.34:H*.44, r=mobile?W*.5:Math.min(W*.24,H*.42);const dg=ctx.createRadialGradient(cx,cy,0,cx,cy,r);dg.addColorStop(0,'rgba(255,255,255,.9)');dg.addColorStop(.7,'rgba(246,227,231,.5)');dg.addColorStop(1,'rgba(246,227,231,0)');ctx.fillStyle=dg;ctx.fillRect(0,0,W,H);
-  // the plinth: a round column, lit from the left
-  // the plinth: a column of travertine, lit from the left, its pores and bands, a soft edge on the top
-  const pw=G.h*1.15, ph=G.h*.12;const cg=ctx.createLinearGradient(G.bx-pw/2,0,G.bx+pw/2,0);cg.addColorStop(0,'#E9DCCF');cg.addColorStop(.35,'#F1E7DD');cg.addColorStop(.7,'#DCCBBB');cg.addColorStop(1,'#C9B6A5');ctx.fillStyle=cg;ctx.fillRect(G.bx-pw/2,G.base,pw,H);
-  const rs=rng(61);ctx.save();ctx.beginPath();ctx.rect(G.bx-pw/2,G.base,pw,H);ctx.clip();for(let i=0;i<9;i++){const yy=G.base+rs()*(H-G.base);ctx.fillStyle=`rgba(170,140,115,${.05+rs()*.06})`;ctx.fillRect(G.bx-pw/2,yy,pw,1+rs()*3);}for(let i=0;i<260;i++){ctx.fillStyle=`rgba(150,120,95,${.12+rs()*.18})`;ctx.beginPath();ctx.ellipse(G.bx-pw/2+rs()*pw,G.base+rs()*(H-G.base),.6+rs()*1.8,.4+rs()*.8,0,0,7);ctx.fill();}ctx.restore();
-  const tg=ctx.createRadialGradient(G.bx-pw*.15,G.base-ph*.1,0,G.bx,G.base,pw*.55);tg.addColorStop(0,'#F8F2EB');tg.addColorStop(1,'#E4D6C8');ctx.fillStyle=tg;ctx.beginPath();ctx.ellipse(G.bx,G.base,pw/2,ph*.35,0,0,7);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(G.bx,G.base,pw/2-1,ph*.35-1,0,Math.PI*.95,Math.PI*1.9);ctx.stroke();}
+/* ============ THE FILM ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint'), fcap=$('#fcap'), cN=$('#cN');
+const STILL=/[?&]still\b/.test(location.search), FLAT=RM||STILL;
+if(FLAT)document.documentElement.classList.add('flat');
+{{$.film.runtime|raw}}
+const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fx:.62,fy:.5});
+let inFrame=false;try{inFrame=window.self!==window.top}catch(e){inFrame=true}
+let AUTO=inFrame&&scrollY<1&&!FLAT;
+if(AUTO)addEventListener('scroll',()=>{if(AUTO&&scrollY>=1){AUTO=false;film.poke()}},{passive:true});
 
-/* the skin, in cross-section: a barrier of flat cells, living cells below, fibres at the bottom */
-const cells=[...Array(90)].map((_,i)=>{const r=rng(500+i);return{x:r(),y:r(),s:.5+r()*.6,jx:(r()-.5),jy:(r()-.5)};});
-// the section as it looks under a microscope, stained: living layers packed with cells and their nuclei, the
-// basal layer dipping into the dermis, collagen and a capillary below (drawn once per size)
-let SKB=null;
-function skinBase(w,h){if(SKB&&SKB.w===w&&SKB.h===h)return SKB.c;const c=document.createElement('canvas');c.width=Math.round(w*DPR);c.height=Math.round(h*DPR);const g=c.getContext('2d');g.setTransform(DPR,0,0,DPR,0,0);const r=rng(77);
-  g.fillStyle='#F7EAEC';g.fillRect(0,0,w,h);
-  const basal=t=>h*(.62+.05*Math.sin(t*Math.PI*6+.6)+.015*Math.sin(t*Math.PI*17));
-  // dermis: loose pink collagen in wavy bundles, fibroblast nuclei, a capillary with red cells
-  {g.save();g.beginPath();g.moveTo(0,h);for(let t=0;t<=1.0001;t+=.01)g.lineTo(t*w,basal(t));g.lineTo(w,h);g.closePath();g.clip();g.fillStyle='#F2D3DA';g.fillRect(0,0,w,h);
-   for(let i=0;i<120;i++){const y0=h*(.62+r()*.4), x0=r()*w, L=w*(.08+r()*.25);g.strokeStyle=`rgba(214,120,150,${.15+r()*.25})`;g.lineWidth=.8+r()*1.6;g.beginPath();g.moveTo(x0,y0);for(let t=0;t<=1;t+=.1)g.lineTo(x0+t*L,y0+Math.sin(t*6+i)*h*.008);g.stroke();}
-   for(let i=0;i<26;i++){const px=r()*w, py=h*(.72+r()*.26);g.fillStyle='rgba(92,55,120,.75)';g.beginPath();g.ellipse(px,py,w*(.01+r()*.008),h*.0045,r()*.4-.2,0,7);g.fill();}
-   const cx=w*.7, cy=h*.84, cr=w*.045;g.strokeStyle='rgba(190,90,120,.7)';g.lineWidth=2;g.beginPath();g.arc(cx,cy,cr,0,7);g.stroke();g.fillStyle='rgba(250,235,238,.9)';g.beginPath();g.arc(cx,cy,cr-1,0,7);g.fill();for(let i=0;i<6;i++){const a=i*1.1;g.fillStyle='rgba(205,70,85,.85)';g.beginPath();g.ellipse(cx+Math.cos(a)*cr*.45,cy+Math.sin(a)*cr*.45,cr*.22,cr*.16,a,0,7);g.fill();}g.restore();}
-  // living epidermis: polygonal cells with pale cytoplasm, a purple nucleus each, flatter towards the top
-  {g.save();g.beginPath();g.moveTo(0,h*.33);g.lineTo(w,h*.33);for(let t=1;t>=0;t-=.01)g.lineTo(t*w,basal(t));g.closePath();g.clip();g.fillStyle='#F4DCE4';g.fillRect(0,0,w,h);
-   for(let row=0;row<14;row++){const yy=h*(.34+row*.024), flat=1-row/14;for(let i=0;i<22;i++){const px=(i+(row%2)*.5+(r()-.5)*.3)/22*w, py=yy+(r()-.5)*h*.008, cw=w/22*.48, ch=h*(.009+.01*(1-flat));g.fillStyle=`rgba(236,190,206,${.55+r()*.3})`;g.beginPath();g.ellipse(px,py,cw,ch,0,0,7);g.fill();g.strokeStyle='rgba(200,130,160,.35)';g.lineWidth=.8;g.stroke();
-      g.fillStyle=row<3?'rgba(70,35,90,.75)':'rgba(92,55,130,.78)';g.beginPath();g.ellipse(px+(r()-.5)*cw*.3,py,cw*(row<3?.5:.32),ch*(row<3?.25:.55),0,0,7);g.fill();if(row<3){g.fillStyle='rgba(60,30,80,.6)';for(let k=0;k<3;k++){g.beginPath();g.arc(px+(r()-.5)*cw*1.4,py+(r()-.5)*ch,.9,0,7);g.fill();}}}}
-   g.restore();}
-  // the basal row: dense, dark nuclei along the wavy border
-  for(let t=0;t<=1;t+=.012){const px=t*w, py=basal(t)-h*.012;g.fillStyle='rgba(70,40,110,.85)';g.beginPath();g.ellipse(px,py,w*.006,h*.011,Math.cos(t*Math.PI*6)*.4,0,7);g.fill();}
-  g.strokeStyle='rgba(180,100,140,.5)';g.lineWidth=1.2;g.beginPath();for(let t=0;t<=1.0001;t+=.01){const p=[t*w,basal(t)];t?g.lineTo(...p):g.moveTo(...p);}g.stroke();
-  SKB={c,w,h};return c;}
-function skin(a,f,time){if(a<=0)return;const [x,y,w,h]=G.skin;ctx.save();ctx.globalAlpha=a;
-  ctx.shadowColor='rgba(60,40,30,.25)';ctx.shadowBlur=30;ctx.shadowOffsetY=10;ctx.fillStyle='#F6E4DA';rr(ctx,x,y,w,h,22);ctx.fill();ctx.shadowColor='transparent';
-  rr(ctx,x,y,w,h,22);ctx.clip();
-  const heal=sm(seg(f[5],.1,.8)), drop=seg(f[4],0,1);
-  ctx.drawImage(skinBase(w,h),x,y,w,h);
-  // the barrier on top: thin, flattened layers in a basket-weave, open and lifting where it's damaged, closed once it heals
-  const rows=7, top=y+h*.12, gap=lerp(1,0,heal);
-  for(let r2=0;r2<rows;r2++){const R=rng(r2*31+9), yb=top+r2*h*(.028+gap*.006);ctx.strokeStyle=`rgba(${Math.round(lerp(222,232,heal))},${Math.round(lerp(140,160,heal))},${Math.round(lerp(170,180,heal))},${.75+.2*heal})`;ctx.lineWidth=Math.max(1.4,h*.012);ctx.lineCap='round';
-    let px=x-10;while(px<x+w+10){const L=w*(.12+R()*.2)*(1+heal*1.5), br=w*(.015+R()*.03)*gap;ctx.beginPath();for(let t=0;t<=1.0001;t+=.1){const xx=px+t*L, yy=yb+Math.sin((xx-x)/w*14+r2*1.7)*h*.004*(1+gap*2)-(gap*R()*h*.012)*Math.sin(t*Math.PI);t?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);}ctx.stroke();px+=L+br;}}
-  // the surface line, rough then smooth
-  ctx.strokeStyle='rgba(170,110,100,.5)';ctx.lineWidth=2;ctx.beginPath();for(let t=0;t<=1;t+=.02){const xx=x+t*w, yy=top-6+Math.sin(t*40)*3*(1-heal)+Math.sin(t*13)*2*(1-heal);t?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy);}ctx.stroke();
-  // the drop sinking in: it lands, flattens, then its actives spread down as specks
-  if(drop>0){const cx=x+w/2;const land=sm(seg(drop,0,.25));const r0=w*.06;ctx.fillStyle=`rgba(255,255,255,${.75*(1-seg(drop,.3,.7))})`;ctx.beginPath();ctx.ellipse(cx,top-6-r0*.4*(1-land),r0*(1+land*1.8),r0*.5*(1-land*.6),0,0,7);ctx.fill();
-    const sp=sm(seg(drop,.25,1));for(let i=0;i<70;i++){const R=rng(900+i);const act=ACTIVES[i%ACTIVES.length];const d=sp*(.3+R()*.7);const ang=(R()-.5)*1.6;const px=cx+Math.sin(ang)*w*.45*d, py=top+h*.5*d*(.4+R()*.6);ctx.fillStyle=rgba(act.col,.95*(1-heal*.6));ctx.beginPath();ctx.arc(px,py,Math.max(2.4,w*.011),0,7);ctx.fill();}
-    // rings where it went in
-    const rg=seg(drop,.2,.9);if(rg>0&&rg<1)for(let k=0;k<3;k++){const t=clamp(rg*1.3-k*.15);if(t<=0||t>=1)continue;ctx.strokeStyle=rgba(ACCENT,.45*(1-t));ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(cx,top-6,w*.08+w*.3*t,h*.02+h*.05*t,0,0,7);ctx.stroke();}}
-  // a glow once it has worked
-  if(heal>0){const g=ctx.createLinearGradient(0,y,0,y+h*.4);g.addColorStop(0,`rgba(255,240,235,${.5*heal})`);g.addColorStop(1,'rgba(255,240,235,0)');ctx.fillStyle=g;ctx.fillRect(x,y,w,h*.4);}
-  ctx.restore();
-  // the window's caption
-  ctx.save();ctx.globalAlpha=a;ctx.fillStyle='#8D817A';ctx.font='400 11px "Space Mono",monospace';ctx.fillText(heal>.5?'SKIN · DAY '+DAYS:'SKIN · CROSS-SECTION',x+4,y-10);ctx.restore();}
-
-/* ============ HUD ============ */
-const dl=$('#dots');STAGES.forEach(()=>dl.appendChild(document.createElement('li')));
-const dotEls=[...dl.children];let shown=-1;
+/* ============ THE FORMULA ============ */
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+$('#fbar').innerHTML=ACTIVES.map(a=>`<div class="act" style="--w:${Math.max(a.pct,1.2)};--c:${a.col}"><i></i></div>`).join('');
+$('#flegend').innerHTML=ACTIVES.map(a=>`<span style="--c:${a.col}">${esc(a.n)} <b>${a.pct}%</b></span>`).join('');
+const acts=[...$('#fbar').children], keys=[...$('#flegend').children];let shown=-1;
 function hud(p,f,poured){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
-  if(idx!==shown){shown=idx;$('#lNum').textContent=idx+1;$('#lTitle').textContent=STAGES[idx].n;$('#lText').textContent=STAGES[idx].c;$('#lWhen').textContent=STAGES[idx].n;}
-  dotEls.forEach((li,i)=>li.style.setProperty('--f',f[i].toFixed(3)));
+  if(idx!==shown){shown=idx;$('#cK').textContent=`Step ${idx+1} of ${STAGES.length}`;cN.textContent=STAGES[idx].n;$('#cT').textContent=STAGES[idx].c;$('#fStep').textContent=STAGES[idx].n;
+    if(!FLAT){cN.classList.remove('in');void cN.offsetWidth;cN.classList.add('in');}}
+  acts.forEach((el,i)=>{const k=clamp(poured-i);el.style.setProperty('--f',sm(k).toFixed(3));keys[i].classList.toggle('in',k>0);});
   const act=ACTIVES.reduce((a,x,i)=>a+x.pct*clamp(poured-i),0);$('#xAct').innerHTML=`${(Math.round(act*10)/10).toString()}<small>%</small>`;
   $('#xPh').textContent=f[2]>.3?PH.toFixed(1):'—';$('#xMl').innerHTML=`${Math.round(ML*clamp(poured/ACTIVES.length))}<small>ml</small>`;
   $('#xDay').textContent=Math.round(DAYS*sm(seg(f[5],.1,.8)));}
 
 /* ============ FRAME ============ */
-const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
-let cur=0,last=-1;const t0=performance.now();
+let cur=0;const t0=performance.now();
+const mobile=()=>innerWidth<820;
 function frame(p,time){
-  ctx.setTransform(DPR,0,0,DPR,0,0);
-  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
-  G.bx=lerp(G.bx0,G.bx1,sm(seg(f[3],0,.35)));
-  sweep(p,time);
-  // pouring: each active in turn, a stream from above then its layer
-  const n=ACTIVES.length, poured=f[1]*n;
-  const layers=ACTIVES.map((a,i)=>({col:a.col,frac:clamp(poured-i)*(1/n)*.86}));
-  // the cap stands on the plinth beside the bottle, is lifted on in an arc, and later carried to the skin
-  const on=sm(seg(f[2],.1,.7)), out=sm(seg(f[3],0,.4)), back=sm(seg(f[4],.35,.95));
-  const capX=lerp(G.h*.42,0,on), capLift=lerp(-G.h*.665,0,on)+Math.sin(on*Math.PI)*G.h*.35;
-  // the dropper travels to the skin window and back
-  const [sx,sy,sw]=G.skin;const tx=sx+sw/2-G.bx, ty=G.base-G.h*.68-(sy-G.h*.2);
-  const trav=out*(1-back);const dropCapX=lerp(capX,tx,trav), dropLift=lerp(capLift,ty,trav)+trav*G.h*.05;
-  const squeeze=sm(seg(f[3],.45,.65))*(1-seg(f[3],.75,.9));
-  bottle(0,ctx,G.bx,G.base,G.h,{kind:'dropper',layers,capX:on<1||trav>0?dropCapX:0,capLift:on<1||trav>0?dropLift:0,squeeze,name:NAME,sub:`${ML} ml`});
-  // stream while pouring
-  if(f[1]>0&&f[1]<1){const i=Math.min(n-1,Math.floor(poured)), a=ACTIVES[i], k=poured-i;if(k>.05&&k<.95){const top=G.base-G.h*.62-G.h*.1;ctx.strokeStyle=rgba(a.col,.9);ctx.lineWidth=G.h*.012;ctx.beginPath();ctx.moveTo(G.bx+(RM?0:Math.sin(time*6)*1.5),0);ctx.lineTo(G.bx,top+G.h*.4*(1-poured/n));ctx.stroke();
-    // the active's name beside the bottle
-    ctx.fillStyle='#2A2522';ctx.font=`500 ${mobile?18:24}px Cormorant,Georgia,serif`;ctx.textAlign=mobile?'center':'right';const lx=mobile?G.bx:G.bx-G.h*.32, ly=mobile?G.base+G.h*.2:G.base-G.h*.5;ctx.globalAlpha=sm(seg(k,.05,.25))*(1-sm(seg(k,.8,.95)));ctx.fillText(a.n,lx,ly);ctx.font='400 12px "Space Mono",monospace';ctx.fillStyle=ACCENT;ctx.fillText(`${a.pct}%`,lx,ly+20);ctx.globalAlpha=1;ctx.textAlign='left';}}
-  // the drop: forms at the tip while squeezed, then falls into the skin window
-  const skinA=sm(seg(f[3],.2,.6));skin(skinA,f,time);
-  const fall=seg(f[3],.62,1);if(fall>0&&f[4]<.1){const x=G.bx+tx, y0=G.base-G.h*.62-dropLift+G.h*.06, y1=sy+G.skin[3]*.12-6;const y=lerp(y0,y1,fall*fall);ctx.fillStyle='rgba(255,255,255,.9)';ctx.strokeStyle='{{A:rgba(169,80,106,.35)}}';ctx.beginPath();const r=G.h*.022;ctx.moveTo(x,y-r*2.2);ctx.quadraticCurveTo(x+r*1.2,y-r*.2,x,y+r);ctx.quadraticCurveTo(x-r*1.2,y-r*.2,x,y-r*2.2);ctx.fill();ctx.stroke();}
-  const k=mobile?seg(p,.01,.05):seg(p,.06,.12);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  const f=FLAT?STAGES.map(()=>1):STAGES.map(s=>seg(p,s.w[0],s.w[1]));
+  // the film is the bottle filled and capped: it runs over the first four steps and holds on the capped bottle
+  film.draw(FLAT?1:AUTO?(time/Math.max(4,film.seconds()))%1:clamp(p/.62),time);
+  const k=mobile()?seg(p,.01,.05):seg(p,.05,.11);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translate(-50%,${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  fcap.classList.toggle('on',FLAT||k>=1);
   hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);
-  hud(p,f,poured);
+  hud(FLAT?1:p,f,f[1]*ACTIVES.length);
 }
 function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
-// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
-// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
 let gLast=-1e9,gForce=90;
-addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
-function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+addEventListener('resize',()=>{gForce=30;film.size();});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){if(AUTO)return false;const r=$('#stage').getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
   if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
 function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
-layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
 requestAnimationFrame(loop);
 window.SR_actives=ACTIVES;
 })();
@@ -589,4 +541,14 @@ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{shop();ro
 })();
 </script>
 
+<script>
+/* the title arrives word by word */
+(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;let k=0;
+ // each word in its own clipped box; a block inside the title (a second line) keeps its place and has its words split too
+ const unit=(box,el)=>{const w=document.createElement('span');w.className='w';el.style.animationDelay=(150+k++*80)+'ms';w.appendChild(el);box.appendChild(w)};
+ const split=box=>{const parts=[...box.childNodes],blk=parts.map(n=>n.nodeType===1&&getComputedStyle(n).display==='block');box.textContent='';
+  parts.forEach((n,j)=>{if(n.nodeType===3)n.textContent.split(/(\s+)/).forEach(x=>{if(!x)return;if(/^\s+$/.test(x)){box.appendChild(document.createTextNode(' '));return}const i=document.createElement('i');i.textContent=x;unit(box,i)});
+   else if(n.nodeType===1){if(blk[j]){box.appendChild(n);if(n.children.length===0)split(n);return}const i=document.createElement('i');i.appendChild(n);unit(box,i)}});};
+ split(h);h.classList.add('split')})();
+</script>
 </body></html>

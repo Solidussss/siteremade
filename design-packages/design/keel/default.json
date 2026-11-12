@@ -282,8 +282,8 @@
   },
   "board": {
     "eyebrow": "Materials board",
-    "title": "Pick it here. See it on the house.",
-    "sub": "Three materials, the colours we stock for each, and the numbers that matter. Whatever you pick goes on the house at the top of the page.",
+    "title": "Pick it here. See it up close.",
+    "sub": "Three materials, the colours we stock for each, and the numbers that matter. Pick one to see it up close.",
     "seeIt": "See it on the house"
   },
   "book": {

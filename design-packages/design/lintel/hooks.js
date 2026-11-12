@@ -5,6 +5,7 @@
 // Also: the payment calculator's starting numbers, the room tour, the neighbourhood places and the showing times.
 // Runs at build time only.
 'use strict';
+const film = require('../../engine/film');
 const fs = require('fs');
 const path = require('path');
 const { FILTERS } = require('../../engine/template');
@@ -145,6 +146,8 @@ function derive(c) {
   const initials = String(c.agent.name).split(/\s+/).filter(Boolean).map((w) => w[0].toUpperCase()).slice(0, 2).join('');
   const sqm = (sqft * .092903).toFixed(1);
   return {
+    film: film.derive(c, null, [255, 190, 120]),
+    illustrative: c.model && c.model.layout === 'illustrative',
     priceText: money(c.listing.price),
     downText: money(c.listing.price * c.payments.downPct / 100), loanText: money(c.listing.price - c.listing.price * c.payments.downPct / 100),
     rateText: (+c.payments.rate).toFixed(2), payText: money(monthly(c)),

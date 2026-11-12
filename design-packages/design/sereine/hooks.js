@@ -4,6 +4,7 @@
 'use strict';
 const { FILTERS } = require('../../engine/template');
 const js = FILTERS.js;
+const film = require('../../engine/film');
 
 const WINDOWS = ['[0,.14]', '[.14,.42]', '[.42,.54]', '[.54,.68]', '[.68,.84]', '[.84,1]'];
 const list = (a) => a.map(js).join(',');
@@ -14,6 +15,7 @@ function derive(c) {
   const cur = c.locale.currency, S = c.shop;
   return {
     brandSaid: c.brand.name.replace(/\s*&\s*/g, ' and '),
+    film: film.derive(c, null, [169, 80, 106]),
     stagesJs: c.stages.map((s, i) => ` {n:${js(s.n)},c:${js(s.c)},w:${WINDOWS[i]}}`).join(',\n'),
     activesJs: c.actives.map((a) => ` {n:${js(a.n)},pct:${num(a.pct)},col:${js(a.col.toUpperCase())}}`).join(',\n'),
     batchJs: `const BATCH=${js(c.batch.ref)}, ML=${c.batch.ml}, PH=${num(c.batch.ph)}, DAYS=${c.batch.days};`,

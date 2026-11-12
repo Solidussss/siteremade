@@ -4,6 +4,7 @@
 'use strict';
 const { FILTERS } = require('../../engine/template');
 const js = FILTERS.js;
+const film = require('../../engine/film');
 
 const WINDOWS = ['[0,.14]', '[.14,.3]', '[.3,.48]', '[.48,.68]', '[.68,.84]', '[.84,1]'];
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -16,6 +17,7 @@ function derive(c) {
   const H = c.visit.hours || {};
   const M = c.visit.map;
   return {
+    film: film.derive(c, null, [217, 162, 58]),
     tel: c.contact.phone.replace(/[^\d+]/g, ''),
     businessSaid: c.business.name.replace(/\s*&\s*/g, ' and '),
     brandSaid: c.brand.name.replace(/\s*&\s*/g, ' and '),

@@ -5,6 +5,7 @@
 'use strict';
 const { FILTERS } = require('../../engine/template');
 const js = FILTERS.js;
+const film = require('../../engine/film');
 
 const WINDOWS = ['[0,.14]', '[.14,.34]', '[.34,.52]', '[.52,.68]', '[.68,.86]', '[.86,1]'];
 // where each of the sixteen stems sits: its stage, angle from upright, reach and size (the original's arrangement)
@@ -24,6 +25,7 @@ function derive(c) {
     tel: c.contact.phone.replace(/[^\d+]/g, ''),
     businessSaid: c.business.name.replace(/\s*&\s*/g, ' and '),
     brandSaid: c.brand.name.replace(/\s*&\s*/g, ' and '),
+    film: film.derive(c, null, [47, 93, 70]),
     stagesJs: c.stages.map((s, i) => ` {n:${js(s.n)},c:${js(s.c)},w:${WINDOWS[i]}}`).join(',\n'),
     stemsJs: c.bouquet.stems.map((s, i) => { const L = SLOTS[i]; return ` {kind:${js(s.kind)},col:${js(s.col)},st:${L.st},a:${num(L.a)},d:${num(L.d)},r:${num(L.r)},name:${js(s.name)}}`; }).join(',\n'),
     sizesJs: c.build.sizes.map((s) => `{n:${js(s.n)},stems:${s.stems},p:${num(s.p)}}`).join(','),

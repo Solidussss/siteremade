@@ -1,12 +1,13 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>{{business.name}}</title>
+<meta name="description" content="{{hero.lede|attr}}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&family=Kalam:wght@400;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* Layout: a tutor or small school. One pinned exercise book where a topic is learnt as you scroll (the question that
-   stumped them, the idea drawn out, a worked example, their own try with a slip, the fix, then the mark and a gold
-   star), with a progress chart filling; then what a parent needs: subjects and levels, a price for lessons, and a free
+/* Layout: a tutor or small school. The real lesson plays as you scroll (the tutor's own video or photos) beside a
+   page of the exercise book that gets written as it goes: the question, the idea in pencil, the worked example, their
+   try with its slip crossed out in red pen, the fix, then the mark and a gold star; then what a parent needs: subjects and levels, a price for lessons, and a free
    first lesson to book. */
 :root{
   color-scheme:light;
@@ -58,46 +59,74 @@ p{margin:0}
 @media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
 @media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:21px}}
 
-/* hero: the exercise book */
+/* hero: the real lesson, and a page of the exercise book written as it goes */
 .hero{position:relative;height:560vh}
 .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--paper)}
-#book{position:absolute;inset:0;width:100%;height:100%;display:block}
-.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 108px);max-width:520px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
-.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(250,248,243,.97),rgba(250,248,243,.82) 55%,rgba(250,248,243,0));pointer-events:none}
-.hero h1{font-size:clamp(3rem,min(6.4vw,9.2vh),6.4rem)}
+.stage .poster,#film{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.stage .poster{object-fit:cover}
+.veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(250,248,243,.94) 0%,rgba(250,248,243,.72) 32%,rgba(250,248,243,0) 54%)}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 104px);max-width:540px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero h1{font-size:clamp(2.8rem,min(5.6vw,8.8vh),5.4rem)}
 .hero h1 em{font-style:normal;display:block;color:var(--accent-text)}
-.lede{color:var(--ink-2);max-width:42ch;font-size:clamp(16px,1.3vw,18px)}
-.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
-.card{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 2*var(--gut)));padding:16px 20px 18px;background:var(--sheet);border-radius:16px;box-shadow:0 22px 56px -30px rgba(30,36,51,.4),0 0 0 1px rgba(30,36,51,.06)}
-.card .row{display:flex;justify-content:space-between;gap:10px;font:400 11.5px/1.2 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.card .mark{color:var(--accent-text)}
-.card h3{font-size:clamp(28px,2.6vw,38px);margin-top:10px}
-.card p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.2em}
-.report{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;border-radius:16px;background:var(--sheet);box-shadow:0 22px 56px -30px rgba(30,36,51,.4),0 0 0 1px rgba(30,36,51,.06);overflow:hidden}
-.report div{padding:12px 18px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
-.report div:nth-child(2n){border-right:0}
-.report div:nth-child(n+3){border-bottom:0}
-.report dt{font:400 10.5px/1.2 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.report dd{margin:6px 0 0;font:800 28px/1 var(--f-display);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
-.report dd small{font:400 11px var(--f-mono);color:var(--muted);margin-left:3px;letter-spacing:0}
-.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap}
-.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+.lede{color:var(--ink-2);max-width:44ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.split .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.22em;margin-bottom:-.14em}
+.split .w{padding-right:.1em;margin-right:-.1em}
+.split .w>i{display:inline-block;font-style:normal;animation:wrise .9s cubic-bezier(.16,1,.3,1) both}
+@keyframes wrise{from{transform:translateY(108%)}}
+.hint{position:absolute;z-index:4;left:var(--gut);bottom:calc(30px + env(safe-area-inset-bottom,0px));font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:10px;pointer-events:none}
+.hint i{display:block;width:1px;height:22px;background:linear-gradient(var(--muted),transparent);animation:cue 1.6s ease-in-out infinite}
 @keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
-/* short laptop screens: a little less type so the copy clears the card */
-@media (min-width:821px) and (max-height:780px){.hero-copy{gap:14px}.hero h1{font-size:clamp(3rem,min(6.4vw,8.8vh),6.4rem)}.lede{font-size:15px}}
+.now{position:absolute;z-index:3;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 112px);max-width:min(400px,32vw);opacity:0;transition:opacity .45s}
+.now.on{opacity:1}
+.now .k{font:500 11px/1.2 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent-text)}
+.now h3{font:800 clamp(34px,3.8vw,56px)/1 var(--f-display);letter-spacing:-.02em;margin-top:10px}
+.now p{color:var(--ink-2);margin-top:12px;font-size:16.5px;max-width:32ch;min-height:4.7em}
+/* the page: ruled lines, a red margin, each line written in as the lesson reaches it */
+.page{position:absolute;z-index:3;right:clamp(28px,5vw,80px);top:calc(env(safe-area-inset-top,0px) + 84px);bottom:calc(24px + env(safe-area-inset-bottom,0px));width:clamp(340px,30vw,440px);padding:26px 26px 20px 62px;background:#FFFEFA repeating-linear-gradient(180deg,transparent 0 33px,rgba(45,79,163,.18) 33px 34px) 0 23px;border-radius:3px;box-shadow:0 30px 60px -30px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.08);transform:rotate(1.2deg);opacity:0;transition:opacity .5s;overflow:hidden}
+.page.on{opacity:1}
+.page::before{content:"";position:absolute;left:48px;top:0;bottom:0;width:1.5px;background:rgba(194,65,12,.45)}
+.pl{position:relative;font:400 21px/34px var(--f-hand);color:var(--blue);white-space:nowrap;clip-path:inset(0 calc((1 - var(--w,0)) * 100%) 0 0)}
+.pl.pen{color:var(--blue)}
+.pl.pencil{color:#6B7180}
+.pl.red{color:var(--red)}
+.pl.plh{font-weight:700;text-decoration:underline;text-underline-offset:5px}
+.pl.hd{font-size:26px;font-weight:700}
+.pl.wrap{white-space:normal;line-height:34px}
+.pl .x{position:absolute;left:-4px;top:50%;height:2.5px;width:calc(var(--x,0) * (100% + 8px));background:var(--red);transform:rotate(-3deg);border-radius:2px}
+.pl.tick::after{content:" ✓";color:var(--red)}
+.mk{position:absolute;right:26px;bottom:26px;display:flex;align-items:center;gap:14px;opacity:0;transform:scale(1.6) rotate(-8deg);transition:opacity .2s,transform .4s cubic-bezier(.3,1.6,.5,1)}
+.mk.on{opacity:1;transform:rotate(-8deg)}
+.mk b{display:grid;place-items:center;width:78px;height:78px;border-radius:50%;border:3px solid var(--red);color:var(--red);font:700 28px/1 var(--f-hand)}
+.mk i{width:62px;height:62px;background:radial-gradient(circle at 35% 30%,#FFE58A,#E8B526 55%,#B9860F);clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);filter:drop-shadow(0 4px 6px rgba(0,0,0,.3))}
+.report{position:absolute;z-index:4;left:var(--gut);bottom:calc(24px + env(safe-area-inset-bottom,0px));display:flex;gap:4px;margin:0;padding:6px;border-radius:14px;background:rgba(255,255,255,.9);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 0 0 1px rgba(30,36,51,.06),0 18px 40px -26px rgba(30,36,51,.5);opacity:0;transition:opacity .45s}
+.report.on{opacity:1}
+.report div{padding:8px 14px}
+.report dt{font:400 10px/1.2 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.report dd{margin:5px 0 0;font:800 22px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.report dd small{font:400 11px var(--f-mono);color:var(--muted);margin-left:2px}
+@media (max-width:1100px) and (min-width:821px){.now{max-width:calc(100% - 2*var(--gut) - 360px)}}
 @media (max-width:820px){
-  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 86px);max-width:none;right:var(--gut);gap:14px}
+  .veil{background:linear-gradient(180deg,rgba(250,248,243,.94) 0%,rgba(250,248,243,.66) 34%,rgba(250,248,243,0) 50%)}
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 84px);max-width:none;right:var(--gut);gap:14px}
   .hero .acts{display:none}
-  .report{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:repeat(3,minmax(0,.85fr)) minmax(0,1.45fr);bottom:calc(204px + env(safe-area-inset-bottom,0px))}
-  .report div{padding:9px 10px;border-bottom:0}
-  .report div:nth-child(2n){border-right:1px solid var(--line)}
-  .report div:last-child{border-right:0}
-  .report dt{font-size:8.5px;letter-spacing:.03em}
-  .report dd{font-size:clamp(17px,5vw,23px);white-space:normal;overflow-wrap:anywhere;line-height:1.05}
-  .report dd small{display:none}
-  .card{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 18px}
-  .card p{font-size:14px;min-height:4.4em}
   .hint{display:none}
+  .now{top:calc(env(safe-area-inset-top,0px) + 72px);right:var(--gut);max-width:none}
+  .now h3{font-size:28px}
+  .now p{font-size:14px;min-height:3em;margin-top:6px}
+  .page{left:12px;right:12px;width:auto;top:auto;height:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));padding:16px 16px 12px 46px;background-size:auto;background-position:0 15px;transform:rotate(.6deg)}
+  .page::before{left:36px}
+  .pl{font-size:16px;line-height:28px}
+  .page{background-image:repeating-linear-gradient(180deg,transparent 0 27px,rgba(45,79,163,.18) 27px 28px)}
+  .pl.hd{font-size:19px}
+  .pl.wrap{line-height:28px}
+  .mk{right:14px;bottom:14px;gap:8px}
+  .mk b{width:54px;height:54px;font-size:20px}
+  .mk i{width:44px;height:44px}
+  .report{left:10px;right:10px;justify-content:space-between;bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+  .report div{padding:6px 8px}
+  .report dt{font-size:9px;letter-spacing:.04em}
+  .report dd{font-size:18px}
 }
 
 /* sections */
@@ -181,9 +210,11 @@ footer{background:var(--ink);color:var(--paper);padding:clamp(70px,9vw,120px) va
 </nav>
 
 <main>
-<section class="hero" id="top" aria-label="A lesson in an exercise book, scroll to work through it">
+<section class="hero" id="top" aria-label="A lesson worked through in an exercise book; scroll to work through it">
   <div class="stage" id="stage">
-    <canvas id="book" aria-hidden="true"></canvas>
+{{#if $.film.poster}}    <img class="poster" src="{{$.film.poster|attr}}" alt="" aria-hidden="true">
+{{/if}}    <canvas id="film" role="img" aria-label="A lesson at {{brand.name|attr}}: working through a question in an exercise book"></canvas>
+    <div class="veil" aria-hidden="true"></div>
     <div class="hero-copy" id="heroCopy">
       <p class="eyebrow">{{hero.eyebrow}}</p>
       <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
@@ -191,17 +222,14 @@ footer{background:var(--ink);color:var(--paper);padding:clamp(70px,9vw,120px) va
       <div class="acts"><a class="btn" href="#trial">{{hero.cta}}</a><a class="btn ghost" href="#subjects">{{hero.cta2}}</a></div>
     </div>
     <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
+    <div class="now" id="now" aria-live="polite"><span class="k"><span id="gNum">1</span> of 6 · <span id="gTopic">{{lesson.topic}}</span></span><h3 id="gTitle">{{stages.0.n}}</h3><p id="gText">{{stages.0.c}}</p></div>
+    <div class="page" id="page" aria-hidden="true"><div id="lines"></div><div class="mk" id="mk"><b>{{lesson.score}}/{{lesson.of}}</b><i></i></div></div>
     <dl class="report" id="report" aria-live="off">
       <div><dt>{{report.labels.0}}</dt><dd id="kMin">0</dd></div>
       <div><dt>{{report.labels.1}}</dt><dd id="kTries">0</dd></div>
       <div><dt>{{report.labels.2}}</dt><dd id="kScore">0<small>/{{lesson.of}}</small></dd></div>
       <div><dt>{{report.labels.3}}</dt><dd id="kConf">—</dd></div>
     </dl>
-    <div class="card" id="card" aria-live="polite">
-      <div class="row"><span><b id="gNum">1</b> of 6</span><span class="mark" id="gTopic">{{lesson.topic}}</span></div>
-      <h3 id="gTitle">{{stages.0.n}}</h3>
-      <p id="gText">{{stages.0.c}}</p>
-    </div>
   </div>
 </section>
 
@@ -298,144 +326,53 @@ const STAGES=[
 const LESSON={{$.lessonJs|raw}};
 const INK={pen:'#2D4FA3',red:{{$.red|js}},pencil:'#6B7180'};
 
-/* ============ GEOMETRY ============ */
-// two pages, each .95 by 1.2: side by side on a wide screen, one above the other on a phone (a pad bound at the top)
-const PW=.95, PH=1.2;
-const cv=$('#book'), ctx=cv.getContext('2d');
-let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null,PAGE=null;
-function fit(ax,ay,up){const w=ax[1]-ax[0], h=ay[1]-ay[0];const bw=up?PW+.04:PW*2+.04, bh=up?PH*2+.04:PH+.04;const s=Math.min(w/bw,h/bh);return{s,x:(ax[0]+ax[1])/2,y:(ay[0]+ay[1])/2};}
-function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
-  const top=Math.max(70,H*.1), rp=$('#report').getBoundingClientRect(), cd=$('#card').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
-  // on a phone: one page fills the screen and the view moves between them; the whole pad for the mark
-  if(mobile){const lo=rp.top-stg.top-10;LA=LB=fit([W*.04,W*.96],[top,lo],true);PAGE={s:Math.min(W*.94/PW,(lo-top)/(PH*1.02)),x:W/2,y:(top+lo)/2,top:top-14,lo:lo+4};}
-  else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(rp.top,cd.top)-stg.top;
-    const side=fit([cr+20,W*.97],[H*.1,low-12]), under=fit([W*.05,W*.95],[cb+20,low-12]);
-    LA=side.s>=under.s*.8?side:under;LB=fit([W*.08,W*.92],[top,low-14]);}}
+/* ============ THE FILM ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint'), now=$('#now'), page=$('#page'), report=$('#report'), mk=$('#mk');
+page.style.setProperty('--red',INK.red);
+const STILL=/[?&]still\b/.test(location.search), FLAT=RM||STILL;
+if(FLAT)document.documentElement.classList.add('flat');
+{{$.film.runtime|raw}}
+const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fx:.6,fy:.5});
+let inFrame=false;try{inFrame=window.self!==window.top}catch(e){inFrame=true}
+let AUTO=inFrame&&scrollY<1&&!FLAT;
+if(AUTO)addEventListener('scroll',()=>{if(AUTO&&scrollY>=1){AUTO=false;film.poke()}},{passive:true});
 
-/* ============ DRAWING ============ */
-// handwriting: text at a real size, revealed left to right like a pen writing it; returns the pen's position
-function write(c,str,x,y,size,col,k,font){if(k<=0)return null;c.save();c.translate(x,y);c.scale(size/24,size/24);c.font=`${font||400} 24px "Kalam",cursive`;c.textBaseline='alphabetic';const w=c.measureText(str).width;
-  c.beginPath();c.rect(-4,-40,w*k+4,60);c.clip();c.fillStyle=col;c.fillText(str,0,0);c.restore();return[x+w*k*size/24,y-size*.2,w*size/24];}
-function textW(c,str,size){c.save();c.font=`400 24px "Kalam",cursive`;const w=c.measureText(str).width*size/24;c.restore();return w;}
-function rngQ(seed){let x=seed>>>0||1;return()=>{x^=x<<13;x^=x>>>17;x^=x<<5;return((x>>>0)%10000)/10000;};}
-const TX={};
-function tx(key,w,h,draw){if(TX[key])return TX[key];const t=document.createElement('canvas');t.width=w;t.height=h;draw(t.getContext('2d'),w,h,rngQ(key.length*13+5));return TX[key]=t;}
-function lay(c,img,x,y,w,h,sc,a){const p=c.createPattern(img,'repeat');if(!p||!p.setTransform)return;p.setTransform(new DOMMatrix().scale(sc));c.save();c.globalAlpha*=a==null?1:a;c.fillStyle=p;c.fillRect(x,y,w,h);c.restore();}
-// paper: short fibres and a faint tooth
-const FIBRE=()=>tx('fibre',200,200,(g,w,h,r)=>{for(let i=0;i<900;i++){g.strokeStyle=r()<.5?`rgba(120,110,90,${.04+r()*.06})`:`rgba(255,255,255,${.3})`;g.lineWidth=.5;g.beginPath();const x=r()*w,y=r()*h,a=r()*6.28,L=2+r()*6;g.moveTo(x,y);g.quadraticCurveTo(x+Math.cos(a+.5)*L*.5,y+Math.sin(a+.5)*L*.5,x+Math.cos(a)*L,y+Math.sin(a)*L);g.stroke();}for(let i=0;i<1500;i++){g.fillStyle=`rgba(100,90,70,${r()*.05})`;g.fillRect(r()*w,r()*h,1,1);}});
-// book cloth: a linen weave
-const CLOTH=()=>tx('cloth',64,64,(g,w,h,r)=>{for(let y=0;y<h;y+=2){g.fillStyle=`rgba(255,255,255,${.03+r()*.05})`;g.fillRect(0,y,w,1);}for(let x=0;x<w;x+=2){g.fillStyle=`rgba(0,0,0,${.04+r()*.06})`;g.fillRect(x,0,1,h);}});
-let DESK=null;
-function buildDesk(){const d=document.createElement('canvas');d.width=cv.width;d.height=cv.height;const g=d.getContext('2d');g.setTransform(DPR,0,0,DPR,0,0);const r=rngQ(7);
-  g.fillStyle='#EFE6D6';g.fillRect(0,0,W,H);const bh=Math.max(60,Math.min(W,H)/6.5);
-  for(let row=0;row*bh<H+bh;row++){const v=r();g.fillStyle=v<.5?`rgba(150,110,60,${.03+v*.06})`:`rgba(255,250,240,${(v-.5)*.2})`;g.fillRect(0,row*bh,W,bh);
-    for(let k=0;k<16;k++){g.strokeStyle=`rgba(160,120,70,${.05+r()*.08})`;g.lineWidth=.6+r();g.beginPath();const yy=row*bh+3+r()*(bh-6);g.moveTo(0,yy);for(let t=0;t<=W;t+=18)g.lineTo(t,yy+Math.sin(t/(60+k*9)+k)*2.2+Math.sin(t/17)*.4);g.stroke();}
-    g.fillStyle='rgba(110,80,45,.16)';g.fillRect(0,row*bh+bh-1.2,W,1.2);g.fillStyle='rgba(255,255,255,.25)';g.fillRect(0,row*bh,W,.8);}
-  const lg=g.createLinearGradient(0,0,W,H);lg.addColorStop(0,'rgba(255,248,230,.25)');lg.addColorStop(.5,'rgba(255,248,230,0)');lg.addColorStop(1,'rgba(80,60,35,.12)');g.fillStyle=lg;g.fillRect(0,0,W,H);DESK=d;}
-// a pencil and an eraser on the desk beside the book
-function deskThings(c){if(mobile)return;c.save();c.translate(PW+.16,-.2);c.rotate(1.38);
-  c.fillStyle='rgba(40,30,20,.18)';c.fillRect(-.014+.01,-.42+.012,.03,.86);
-  const b=c.createLinearGradient(-.016,0,.016,0);b.addColorStop(0,'#C98E1E');b.addColorStop(.35,'#F4C04A');b.addColorStop(.36,'#E3A92E');b.addColorStop(.7,'#F0BA40');b.addColorStop(.71,'#C8901E');b.addColorStop(1,'#A87412');c.fillStyle=b;c.fillRect(-.016,-.34,.032,.68);
-  c.fillStyle='#E8C9A0';c.beginPath();c.moveTo(-.016,.34);c.lineTo(.016,.34);c.lineTo(.002,.42);c.lineTo(-.002,.42);c.closePath();c.fill();c.fillStyle='#3A3A3A';c.beginPath();c.moveTo(-.005,.395);c.lineTo(.005,.395);c.lineTo(.001,.425);c.lineTo(-.001,.425);c.closePath();c.fill();
-  const f=c.createLinearGradient(-.017,0,.017,0);f.addColorStop(0,'#8E959C');f.addColorStop(.45,'#E8ECEF');f.addColorStop(1,'#7E858C');c.fillStyle=f;c.fillRect(-.017,-.4,.034,.06);c.fillStyle='rgba(0,0,0,.2)';for(let i=0;i<3;i++)c.fillRect(-.017,-.39+i*.02,.034,.003);
-  c.fillStyle='#E88B8B';c.beginPath();c.roundRect(-.016,-.46,.032,.065,.01);c.fill();c.fillStyle='rgba(255,255,255,.25)';c.fillRect(-.01,-.455,.006,.05);c.restore();
-  c.save();c.translate(PW+.2,.36);c.rotate(-.25);c.fillStyle='rgba(40,30,20,.2)';c.beginPath();c.roundRect(-.075+.01,-.04+.014,.15,.08,.012);c.fill();const e=c.createLinearGradient(0,-.04,0,.04);e.addColorStop(0,'#F7F3EE');e.addColorStop(1,'#DDD6CC');c.fillStyle=e;c.beginPath();c.roundRect(-.075,-.04,.15,.08,.012);c.fill();c.fillStyle='#3E64B8';c.beginPath();c.roundRect(-.075,-.04,.06,.08,[.012,0,0,.012]);c.fill();c.fillStyle='rgba(255,255,255,.3)';c.fillRect(-.07,-.035,.13,.008);c.restore();}
-function page(c,x,y,left){c.fillStyle='#FFFFFF';c.fillRect(x,y,PW,PH);lay(c,FIBRE(),x,y,PW,PH,.0016);
-  {const g=left?c.createLinearGradient(x+PW,0,x+PW-.22,0):c.createLinearGradient(x,0,x+.22,0);g.addColorStop(0,'rgba(60,50,40,.2)');g.addColorStop(.25,'rgba(60,50,40,.07)');g.addColorStop(1,'rgba(60,50,40,0)');c.fillStyle=g;if(left)c.fillRect(x+PW-.22,y,.22,PH);else c.fillRect(x,y,.22,PH);
-   const o=left?c.createLinearGradient(x,0,x+.05,0):c.createLinearGradient(x+PW,0,x+PW-.05,0);o.addColorStop(0,'rgba(60,50,40,.06)');o.addColorStop(1,'rgba(60,50,40,0)');c.fillStyle=o;if(left)c.fillRect(x,y,.05,PH);else c.fillRect(x+PW-.05,y,.05,PH);}
-  c.strokeStyle='rgba(45,79,163,.16)';c.lineWidth=.003;for(let ly=y+.12;ly<y+PH-.02;ly+=.08){c.beginPath();c.moveTo(x,ly);c.lineTo(x+PW,ly);c.stroke();}
-  if(left){c.strokeStyle='rgba(194,65,12,.35)';c.lineWidth=.004;c.beginPath();c.moveTo(x+.11,y);c.lineTo(x+.11,y+PH);c.stroke();}
-  else{c.fillStyle='rgba(45,79,163,.05)';for(let gx=x+.04;gx<x+PW;gx+=.04)for(let gy=y+.04;gy<y+PH;gy+=.04){}}}
-function pen(c,p,col,on){if(!p||!on)return;c.save();c.translate(p[0],p[1]);c.rotate(.6);c.fillStyle='rgba(30,25,20,.1)';c.save();c.translate(.022,.016);c.beginPath();c.roundRect(-.012,-.36,.024,.33,.012);c.fill();c.restore();
-  const tg=c.createLinearGradient(-.012,0,.012,0);tg.addColorStop(0,'#8E959C');tg.addColorStop(.45,'#EEF1F3');tg.addColorStop(1,'#7A8188');c.fillStyle=tg;c.beginPath();c.moveTo(-.002,0);c.lineTo(.002,0);c.lineTo(.012,-.035);c.lineTo(-.012,-.035);c.closePath();c.fill();c.fillStyle=col;c.beginPath();c.arc(0,-.001,.0025,0,7);c.fill();
-  const bg=c.createLinearGradient(-.016,0,.016,0);bg.addColorStop(0,'#141414');bg.addColorStop(.4,'#4A4A4E');bg.addColorStop(.55,'#2A2A2C');bg.addColorStop(1,'#0E0E0E');c.fillStyle=bg;c.beginPath();c.roundRect(-.016,-.32,.032,.29,.006);c.fill();
-  const cg=c.createLinearGradient(-.018,0,.018,0);cg.addColorStop(0,shade2(col,-.35));cg.addColorStop(.4,shade2(col,.25));cg.addColorStop(1,shade2(col,-.4));c.fillStyle=cg;c.beginPath();c.roundRect(-.018,-.37,.036,.07,.008);c.fill();
-  c.fillStyle='#C9CED4';c.fillRect(.012,-.36,.006,.11);c.fillStyle='rgba(255,255,255,.6)';c.fillRect(.013,-.36,.002,.11);c.restore();}
-function shade2(hex,k){const n=parseInt(hex.slice(1),16);const f=v=>Math.round(k>0?v+(255-v)*k:v*(1+k));return`rgb(${f(n>>16&255)},${f(n>>8&255)},${f(n&255)})`;}
-function sticky(c,x,y,k,time){if(k<=0)return;c.save();c.translate(x+PW/2,y+.27);c.rotate(-.04);c.translate(0,-(1-sm(k))*.2);c.globalAlpha*=Math.min(1,k*2);
-  {const m=c.getTransform(), sc=Math.hypot(m.a,m.b);c.save();c.shadowColor='rgba(60,50,20,.28)';c.shadowBlur=.025*sc;c.shadowOffsetY=.012*sc;c.shadowOffsetX=.006*sc;c.fillStyle='#FCE68A';c.beginPath();c.moveTo(-.38,-.2);c.lineTo(.36,-.2);c.lineTo(.36,.16);c.quadraticCurveTo(0,.185,-.38,.16);c.closePath();c.fill();c.restore();}
-  {const sg=c.createLinearGradient(0,-.2,0,.18);sg.addColorStop(0,'#F8DF7A');sg.addColorStop(.15,'#FCE68A');sg.addColorStop(.8,'#FDEB98');sg.addColorStop(1,'#F0D670');c.fillStyle=sg;}c.beginPath();c.moveTo(-.38,-.2);c.lineTo(.36,-.2);c.lineTo(.36,.16);c.quadraticCurveTo(0,.185,-.38,.16);c.closePath();c.fill();lay(c,FIBRE(),-.38,-.2,.74,.38,.0016,.6);
-  c.fillStyle='rgba(160,130,40,.12)';c.fillRect(-.38,-.2,.74,.05);c.fillStyle='rgba(255,255,255,.25)';c.beginPath();c.moveTo(-.38,.12);c.quadraticCurveTo(0,.15,.36,.12);c.lineTo(.36,.16);c.quadraticCurveTo(0,.185,-.38,.16);c.closePath();c.fill();
-  const words=LESSON.idea.split(' '), lines=[];let line='';words.forEach(w=>{const t=line?line+' '+w:w;if(textW(c,t,.058)>.64&&line){lines.push(line);line=w;}else line=t;});if(line)lines.push(line);
-  lines.slice(0,3).forEach((l,i)=>write(c,l,-.34,-.08+i*.085,.058,'#2A2A2A',sm(seg(k,.3+i*.2,.6+i*.2)),700));c.restore();}
-function hatch(c,x,y,w,h,rgb,seed){if(w<=0||h<=0)return;const r=rngQ(seed);c.save();c.beginPath();c.rect(x,y,w,h);c.clip();c.fillStyle=`rgba(${rgb},.12)`;c.fillRect(x,y,w,h);c.lineCap='round';
-  for(let t=-h;t<w;t+=.0075){c.strokeStyle=`rgba(${rgb},${.4+r()*.3})`;c.lineWidth=.0028+r()*.002;c.beginPath();c.moveTo(x+t+r()*.003,y+h+.004);c.lineTo(x+t+h+r()*.003,y-.004);c.stroke();}c.restore();}
-function sketch(c,x,y,k){if(k<=0||LESSON.sketch==='none')return;const cx=x+PW/2, cy=y+.66;c.save();c.strokeStyle=INK.pencil;c.lineWidth=.005;c.lineCap='round';
-  if(LESSON.sketch==='fractions'){[[4,3,-.07],[8,7,.07]].forEach(([n,f,dy],r)=>{const w=.62, x0=cx-w/2, yy=cy+dy-.03;const kk=sm(seg(k,r*.4,r*.4+.5));if(kk<=0)return;c.globalAlpha=kk;
-      for(let i=0;i<n;i++){if(i<f)hatch(c,x0+i*w/n+.004,yy+.004,w/n-.008,.062,r?'194,65,12':'45,79,163',r*31+i);c.strokeRect(x0+i*w/n,yy,w/n,.07);}});c.globalAlpha=1;}
-  if(LESSON.sketch==='triangle'){const kk=sm(k);c.beginPath();c.moveTo(cx-.22,cy+.12);c.lineTo(cx-.22+.44*kk,cy+.12);c.stroke();if(kk>.4){c.beginPath();c.moveTo(cx-.22,cy+.12);c.lineTo(cx-.22,cy+.12-.28*sm(seg(kk,.4,.8)));c.stroke();}if(kk>.7){c.beginPath();c.moveTo(cx-.22,cy-.16);c.lineTo(cx+.22,cy+.12);c.stroke();c.strokeRect(cx-.22,cy+.08,.04,.04);
-      c.fillStyle=INK.pencil;write(c,'a',cx-.28,cy,.05,INK.pencil,1);write(c,'b',cx-.02,cy+.18,.05,INK.pencil,1);write(c,'c',cx+.02,cy-.04,.05,INK.red,1);}}
-  if(LESSON.sketch==='wave'){c.beginPath();for(let i=0;i<=60*sm(k);i++){const t=i/60, xx=cx-.3+t*.6, yy=cy-Math.sin(t*Math.PI*4)*.09;i?c.lineTo(xx,yy):c.moveTo(xx,yy);}c.stroke();c.strokeStyle='rgba(107,113,128,.4)';c.beginPath();c.moveTo(cx-.32,cy);c.lineTo(cx+.32,cy);c.stroke();}
-  c.restore();}
-function chart(c,x,y,k){const n=LESSON.tries, x0=x+.14, base=y+PH-.1, w=PW-.28, bw=w/n*.6;c.save();c.strokeStyle='rgba(30,36,51,.3)';c.lineWidth=.004;c.beginPath();c.moveTo(x0,base-.24);c.lineTo(x0,base);c.lineTo(x0+w,base);c.stroke();
-  for(let i=0;i<n;i++){const kk=sm(seg(k,i/n,(i+1)/n));if(kk<=0)continue;const h=(.06+.18*(i+1)/n)*kk;hatch(c,x0+w/n*i+w/n*.2,base-h,bw,h,i===Math.floor(n/2)-1&&n>2?'194,65,12':'45,79,163',i*17+3);c.strokeStyle=i===Math.floor(n/2)-1&&n>2?'rgba(194,65,12,.7)':'rgba(45,79,163,.7)';c.lineWidth=.003;c.strokeRect(x0+w/n*i+w/n*.2,base-h,bw,h);}c.restore();}
-function tick(c,x,y,k){if(k<=0)return;c.save();c.strokeStyle=INK.red;c.lineWidth=.012;c.lineCap='round';c.lineJoin='round';c.beginPath();c.moveTo(x,y);const a=sm(seg(k,0,.4));c.lineTo(x+.025*a,y+.025*a);if(k>.4){const b=sm(seg(k,.4,1));c.lineTo(x+.025+.05*b,y+.025-.07*b);}c.stroke();c.restore();}
-function star(c,x,y,k,time){if(k<=0)return;const s=sm(k)*(1+.25*Math.sin(Math.min(1,k)*Math.PI));c.save();c.translate(x,y);c.rotate(-.2+(1-k)*.8);c.scale(s,s);c.fillStyle='rgba(0,0,0,.15)';c.beginPath();for(let i=0;i<10;i++){const a=i/10*Math.PI*2-Math.PI/2, r=i%2?.04:.095;c.lineTo(Math.cos(a)*r+.006,Math.sin(a)*r+.008);}c.closePath();c.fill();
-  const g=c.createLinearGradient(-.1,-.1,.1,.1);g.addColorStop(0,'#F7D774');g.addColorStop(.5,'#E2A92C');g.addColorStop(1,'#F2C94C');c.fillStyle=g;c.beginPath();for(let i=0;i<10;i++){const a=i/10*Math.PI*2-Math.PI/2, r=i%2?.04:.095;c.lineTo(Math.cos(a)*r,Math.sin(a)*r);}c.closePath();c.fill();
-  c.fillStyle='rgba(255,255,255,.45)';c.beginPath();c.arc(-.02,-.025,.015,0,7);c.fill();c.restore();}
-function lesson(c,f,time){const L=mobile?[-PW/2,-PH-.01]:[-PW-.01,-PH/2], R=mobile?[-PW/2,.01]:[.01,-PH/2];
-  // the book: cover, pages, spine
-  deskThings(c);c.save();c.shadowColor='rgba(30,36,51,.3)';c.shadowBlur=30;c.shadowOffsetY=12;c.fillStyle=INK.pen;if(mobile)c.fillRect(-PW/2-.02,-PH-.03,PW+.04,PH*2+.06);else c.fillRect(-PW-.03,-PH/2-.02,PW*2+.06,PH+.04);c.restore();
-  {const cb=mobile?[-PW/2-.02,-PH-.03,PW+.04,PH*2+.06]:[-PW-.03,-PH/2-.02,PW*2+.06,PH+.04];lay(c,CLOTH(),cb[0],cb[1],cb[2],cb[3],.0015,1);const cg=c.createLinearGradient(cb[0],cb[1],cb[0]+cb[2],cb[1]+cb[3]);cg.addColorStop(0,'rgba(255,255,255,.12)');cg.addColorStop(1,'rgba(0,0,0,.18)');c.fillStyle=cg;c.fillRect(...cb);
-   c.fillStyle='#F2EEE6';const st=mobile?[[-PW/2+.006,-PH-.008,PW-.006,PH*2+.016]]:[[-PW-.008,-PH/2+.006,PW*2+.016,PH-.006]];st.forEach(([a,b2,w,h])=>{c.fillRect(a,b2,w,h);c.strokeStyle='rgba(120,110,95,.25)';c.lineWidth=.0015;for(let i=1;i<4;i++){c.strokeRect(a+i*.002,b2+i*.002,w-i*.004,h-i*.004);}});}
-  page(c,L[0],L[1],true);page(c,R[0],R[1],false);
-  {const g=mobile?c.createLinearGradient(0,-.07,0,.07):c.createLinearGradient(-.07,0,.07,0);g.addColorStop(0,'rgba(60,50,40,0)');g.addColorStop(.42,'rgba(60,50,40,.16)');g.addColorStop(.5,'rgba(60,50,40,.28)');g.addColorStop(.58,'rgba(60,50,40,.16)');g.addColorStop(1,'rgba(60,50,40,0)');c.fillStyle='#FFFFFF';if(mobile)c.fillRect(-PW/2,-.012,PW,.024);else c.fillRect(-.012,-PH/2,.024,PH);c.fillStyle=g;if(mobile)c.fillRect(-PW/2,-.07,PW,.14);else c.fillRect(-.07,-PH/2,.14,PH);}
-  if(mobile){c.fillStyle='#B8BCC6';for(let i=0;i<12;i++){c.beginPath();c.arc(-PW/2+.06+i*.076,0,.012,0,7);c.fill();}}
-  const [lx,ly]=L, [rx,ry]=R, X=lx+.15, line=i=>ly+.12+i*.08-.012;let tip=null,tipCol=INK.pen;
-  // the question
-  const q=sm(seg(f[0],.15,.9));write(c,LESSON.topic,X,line(0),.045,INK.pencil,sm(seg(f[0],0,.3)));const tq=write(c,LESSON.question,X,line(1),.068,INK.pen,q,700);if(q>0&&q<1)tip=tq;
-  // the idea, on the other page
-  sticky(c,rx,ry,sm(seg(f[1],0,.6)),time);sketch(c,rx,ry,sm(seg(f[1],.45,1)));
-  // the worked example
-  write(c,LESSON.exampleLabel,X,line(3),.045,INK.pencil,sm(seg(f[2],0,.2)));
-  LESSON.example.forEach((s,i)=>{const n=LESSON.example.length, k=sm(seg(f[2],.15+i*.8/n,.15+(i+1)*.8/n));const t=write(c,s,X+.04,line(4+i),.06,INK.pen,k);if(k>0&&k<1)tip=t;});
-  // their try, with a slip
-  const ty=4+LESSON.example.length+1;write(c,`${LESSON.tryLabel}: ${LESSON.tryQ}`,X,line(ty),.05,INK.pencil,sm(seg(f[3],0,.3)));
-  const wk=sm(seg(f[3],.3,.95)), tw=write(c,LESSON.wrong,X+.04,line(ty+1),.06,INK.pen,wk);if(wk>0&&wk<1)tip=tw;
-  // the fix: red circle round the slip, the correction, then the right line
-  const fc=sm(seg(f[4],0,.3));if(fc>0&&tw){const w=tw[2], cx=X+.04+w*.82, cy=line(ty+1)-.02;c.save();c.strokeStyle=INK.red;c.lineWidth=.007;c.beginPath();c.ellipse(cx,cy,w*.2+.02,.045,-.05,0,Math.PI*2*fc);c.stroke();c.restore();}
-  const fx=sm(seg(f[4],.25,.6)), tf=write(c,'→ '+LESSON.fix,X+.04,line(ty+2),.058,INK.red,fx);if(fx>0&&fx<1){tip=tf;tipCol=INK.red;}
-  const rk=sm(seg(f[4],.6,1)), tr=write(c,LESSON.right,X+.04,line(ty+3),.06,INK.pen,rk);if(rk>0&&rk<1)tip=tr;
-  // the mark: ticks, the score, a gold star
-  const mk=f[5];[line(1),line(4+LESSON.example.length-1),line(ty+3)].forEach((yy,i)=>tick(c,lx+PW-.09,yy-.04,sm(seg(mk,i*.15,i*.15+.3))));
-  const sc=sm(seg(mk,.4,.7));if(sc>0){c.save();c.globalAlpha*=sc;c.strokeStyle=INK.red;c.lineWidth=.007;c.beginPath();c.ellipse(lx+PW-.2,ly+PH-.14,.11,.07,-.1,0,7);c.stroke();c.restore();write(c,`${LESSON.score}/${LESSON.of}`,lx+PW-.27,ly+PH-.12,.062,INK.red,sc,700);}
-  star(c,rx+PW-.16,ry+.12,seg(mk,.6,.95),time);
-  chart(c,rx,ry,sm(seg(f[2]+f[3]+f[4]+f[5]*.5,0,3.5)/1));
-  if(tip)pen(c,tip,tipCol,true);}
+/* ============ THE PAGE ============ */
+// each line: what's written, in which ink, and the step (and the part of it) in which the pen writes it
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const L=[{t:LESSON.topic,c:'pen hd',s:0,a:0,b:.3},{t:LESSON.question,c:'pen',s:0,a:.3,b:.8},{t:LESSON.idea,c:'pencil wrap',s:1,a:.1,b:.8},
+  {t:LESSON.exampleLabel,c:'pen plh',s:2,a:0,b:.2},...LESSON.example.map((e,i,all)=>({t:e,c:'pen',s:2,a:.2+.7*i/all.length,b:.2+.7*(i+1)/all.length})),
+  {t:LESSON.tryLabel,c:'pen plh',s:3,a:0,b:.2},{t:LESSON.tryQ,c:'pen',s:3,a:.2,b:.5},{t:LESSON.wrong,c:'pen',s:3,a:.55,b:.9,wrong:1},
+  {t:LESSON.fix,c:'red',s:4,a:.2,b:.55},{t:LESSON.right,c:'pen',s:4,a:.55,b:.9,ok:1}];
+$('#lines').innerHTML=L.map(l=>`<div class="pl ${l.c}">${esc(l.t)}${l.wrong?'<i class="x"></i>':''}</div>`).join('');
+const lines=[...$('#lines').children];let shown=-1;
 
-/* ============ HUD ============ */
-let shown=-1;
-function hud(p,f){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
+/* ============ FRAME ============ */
+let cur=0;const t0=performance.now();
+function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
+const mobile=()=>innerWidth<820;
+function frame(p,time){
+  const P=FLAT?1:p, f=STAGES.map(s=>FLAT?1:seg(p,s.w[0],s.w[1]));
+  film.draw(FLAT?1:AUTO?(time/Math.max(4,film.seconds()))%1:clamp(seg(P,.02,.94)),time);
+  const k=mobile()?seg(p,.01,.05):seg(p,.06,.12);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);const on=FLAT||k>=1;[now,page,report].forEach(el=>el.classList.toggle('on',on));
+  let idx=0;STAGES.forEach((s,i)=>{if(P>=s.w[0])idx=i;});
   if(idx!==shown){shown=idx;$('#gNum').textContent=idx+1;$('#gTitle').textContent=STAGES[idx].n;$('#gText').textContent=STAGES[idx].c;}
+  // the pen writes each line left to right; the slip is crossed out in red when the fix starts; the right answer gets its tick
+  lines.forEach((el,i)=>{const l=L[i];el.style.setProperty('--w',(FLAT?1:seg(f[l.s],l.a,l.b)).toFixed(3));
+    if(l.wrong){const x=el.querySelector('.x');x.style.setProperty('--x',(FLAT?1:sm(seg(f[4],0,.2))).toFixed(3));}
+    if(l.ok)el.classList.toggle('tick',f[5]>.2);});
+  mk.classList.toggle('on',f[5]>.5);
   const w=clamp((f[0]+f[1]+f[2]+f[3]+f[4]+f[5])/6);$('#kMin').textContent=Math.round(LESSON.minutes*w);
   $('#kTries').textContent=Math.round(LESSON.tries*sm(seg(f[2]+f[3]+f[4]+f[5]*.5,0,3.5)));
   $('#kScore').innerHTML=`${f[5]>.55?LESSON.score:f[4]>.6?Math.max(0,LESSON.score-1):f[2]>.5?Math.max(0,LESSON.score-3):0}<small>/${LESSON.of}</small>`;
-  $('#kConf').textContent=p>=STAGES[5].w[0]?LESSON.confidence:p>=STAGES[1].w[0]?LESSON.start:'—';}
-
-/* ============ FRAME ============ */
-const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
-let cur=0;const t0=performance.now();
-function frame(p,time){ctx.setTransform(1,0,0,1,0,0);if(!DESK||DESK.width!==cv.width||DESK.height!==cv.height)buildDesk();ctx.drawImage(DESK,0,0);ctx.setTransform(DPR,0,0,DPR,0,0);
-  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
-  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
-  let S=lerp(LA.s,LB.s,m), X=lerp(LA.x,LB.x,m), Y=lerp(LA.y,LB.y,m);
-  if(mobile&&PAGE){const top=-PH/2-.01, bot=PH/2+.01;let cy=lerp(top,bot,sm(seg(f[1],0,.35)));cy=lerp(cy,top,sm(seg(f[2],0,.25)));const out=sm(seg(f[5],.3,.8));
-    S=lerp(PAGE.s,LA.s,out);cy=lerp(cy,0,out);X=PAGE.x;Y=PAGE.y-cy*S;}
-  ctx.globalAlpha=mobile?.25+.75*k:1;
-  ctx.save();if(mobile&&PAGE){ctx.beginPath();ctx.rect(0,PAGE.top,W,PAGE.lo-PAGE.top);ctx.clip();}ctx.translate(X,Y);ctx.scale(S,S);lesson(ctx,f,time);ctx.restore();ctx.globalAlpha=1;
-  copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
-  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,f);}
-function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
-// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
-// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+  $('#kConf').textContent=P>=STAGES[5].w[0]?LESSON.confidence:P>=STAGES[1].w[0]?LESSON.start:'—';
+}
 let gLast=-1e9,gForce=90;
-addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
-function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+addEventListener('resize',()=>{gForce=30;film.size();});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){if(AUTO)return false;const r=$('#stage').getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
   if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
 function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
-layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
-if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
 requestAnimationFrame(loop);
 })();
 </script>
@@ -504,4 +441,14 @@ quote();
 })();
 </script>
 
+<script>
+/* the title arrives word by word */
+(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;let k=0;
+ // each word in its own clipped box; a block inside the title (a second line) keeps its place and has its words split too
+ const unit=(box,el)=>{const w=document.createElement('span');w.className='w';el.style.animationDelay=(150+k++*80)+'ms';w.appendChild(el);box.appendChild(w)};
+ const split=box=>{const parts=[...box.childNodes],blk=parts.map(n=>n.nodeType===1&&getComputedStyle(n).display==='block');box.textContent='';
+  parts.forEach((n,j)=>{if(n.nodeType===3)n.textContent.split(/(\s+)/).forEach(x=>{if(!x)return;if(/^\s+$/.test(x)){box.appendChild(document.createTextNode(' '));return}const i=document.createElement('i');i.textContent=x;unit(box,i)});
+   else if(n.nodeType===1){if(blk[j]){box.appendChild(n);if(n.children.length===0)split(n);return}const i=document.createElement('i');i.appendChild(n);unit(box,i)}});};
+ split(h);h.classList.add('split')})();
+</script>
 </body></html>

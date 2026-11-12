@@ -5,6 +5,7 @@
 'use strict';
 const { FILTERS } = require('../../engine/template');
 const js = FILTERS.js;
+const film = require('../../engine/film');
 
 const WINDOWS = ['[0,.14]', '[.14,.3]', '[.3,.48]', '[.48,.64]', '[.64,.82]', '[.82,1]'];
 const num = (n) => String(+(+n).toFixed(3)).replace(/^(-?)0\./, '$1.');
@@ -16,6 +17,7 @@ function derive(c) {
     tel: c.contact.phone.replace(/[^\d+]/g, ''),
     businessSaid: c.business.name.replace(/\s*&\s*/g, ' and '),
     brandSaid: c.brand.name.replace(/\s*&\s*/g, ' and '),
+    film: film.derive(c, null, [194, 65, 12]),
     stagesJs: c.stages.map((s, i) => ` {n:${js(s.n)},c:${js(s.c)},w:${WINDOWS[i]}}`).join(',\n'),
     lessonJs: `{topic:${js(L.topic)},question:${js(L.question)},idea:${js(L.idea)},sketch:${js(L.sketch)},\n example:[${list(L.example)}],exampleLabel:${js(L.exampleLabel)},tryLabel:${js(L.tryLabel)},tryQ:${js(L.tryQ)},wrong:${js(L.wrong)},fix:${js(L.fix)},right:${js(L.right)},\n minutes:${L.minutes},tries:${L.tries},score:${L.score},of:${L.of},confidence:${js(L.confidence)},start:${js(L.start)}}`,
     red: c.theme.accent,

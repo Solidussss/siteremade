@@ -1,11 +1,13 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>{{business.name}}</title>
+<meta name="description" content="{{hero.lede|attr}}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prata&family=Sora:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
-/* Layout: a clothing boutique. One pinned flat-lay on a linen table where an outfit comes together as you scroll (the
-   top, the bottoms, the shoes, the bag and the little things, the tags, then wrapped in tissue and boxed); then what a
+/* Layout: a clothing boutique. The real outfit comes together on the shop's table as you scroll (the shop's own video
+   or photos); each piece's swing tag drops onto the rail along the top as it's added, then the till prints a receipt
+   that adds it all up and it's stamped wrapped; then what a
    shopper needs: what's new with colours and sizes, a bag that adds up, and the shop's hours with a styling slot. */
 :root{
   color-scheme:light;
@@ -58,44 +60,76 @@ p{margin:0}
 @media (max-width:980px){.nav ul{display:none}.nav .bagbtn{margin-left:auto}}
 @media (max-width:560px){.nav .bagbtn{display:none}.nav .btn{margin-left:auto}.brand{font-size:23px}}
 
-/* hero: the flat-lay */
+/* hero: the real outfit, the swing tags on the rail, the receipt */
 .hero{position:relative;height:560vh}
 .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--linen)}
-#lay{position:absolute;inset:0;width:100%;height:100%;display:block}
-.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 108px);max-width:500px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
-.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(244,241,236,.97),rgba(244,241,236,.82) 55%,rgba(244,241,236,0));pointer-events:none}
-.hero h1{font-size:clamp(3rem,min(6.2vw,9.4vh),6.2rem)}
-.hero h1 em{font-style:italic;display:block;color:var(--accent-text)}
-.lede{color:var(--ink-2);max-width:42ch;font-size:clamp(15.5px,1.25vw,17.5px)}
-.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
-.card{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 2*var(--gut)));padding:16px 20px 18px;background:var(--sheet);box-shadow:0 22px 56px -30px rgba(31,29,27,.4),0 0 0 1px rgba(31,29,27,.06)}
-.card .row{display:flex;justify-content:space-between;gap:10px;font:400 11px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.card .piece{color:var(--accent-text)}
-.card h3{font-size:clamp(30px,2.8vw,40px);margin-top:10px}
-.card p{color:var(--ink-2);font-size:14.5px;margin-top:6px;min-height:3.3em}
-.till{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;background:var(--sheet);box-shadow:0 22px 56px -30px rgba(31,29,27,.4),0 0 0 1px rgba(31,29,27,.06);overflow:hidden}
-.till div{padding:12px 18px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
-.till div:nth-child(2n){border-right:0}
-.till div:nth-child(n+3){border-bottom:0}
-.till dt{font:400 10px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.till dd{margin:6px 0 0;font:600 24px/1.05 var(--f-body);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
-.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap}
-.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+.stage .poster,#film{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.stage .poster{object-fit:cover}
+.veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(244,241,236,.94) 0%,rgba(244,241,236,.72) 32%,rgba(244,241,236,0) 54%)}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 104px);max-width:540px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero h1{font-size:clamp(3rem,min(6vw,9.4vh),6rem)}
+.hero h1 em{display:block;color:var(--accent-text)}
+.lede{color:var(--ink-2);max-width:44ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.split .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.22em;margin-bottom:-.14em}
+.split .w{padding-right:.1em;margin-right:-.1em}
+.split .w>i{display:inline-block;font-style:inherit;animation:wrise .9s cubic-bezier(.16,1,.3,1) both}
+@keyframes wrise{from{transform:translateY(108%)}}
+.hint{position:absolute;z-index:4;left:var(--gut);bottom:calc(30px + env(safe-area-inset-bottom,0px));font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:10px;pointer-events:none}
+.hint i{display:block;width:1px;height:22px;background:linear-gradient(var(--muted),transparent);animation:cue 1.6s ease-in-out infinite}
 @keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
-/* short laptop screens: a little less type so the copy clears the card */
-@media (min-width:821px) and (max-height:780px){.hero-copy{gap:14px}.hero h1{font-size:clamp(3rem,min(6.2vw,8.6vh),6.2rem)}.lede{font-size:15px}}
+/* the rail and its swing tags */
+.rod{position:absolute;z-index:3;left:calc(var(--gut) + min(460px,36vw));right:var(--gut);top:calc(env(safe-area-inset-top,0px) + 70px);height:6px;border-radius:3px;background:linear-gradient(180deg,#d8c08a,#9a7a3c);box-shadow:0 4px 10px -4px rgba(0,0,0,.5);opacity:0;transition:opacity .45s}
+.rod.on{opacity:1}
+.stags{position:absolute;left:0;right:0;top:3px;display:flex;justify-content:space-around}
+.stag{position:relative;display:flex;flex-direction:column;align-items:center;transform-origin:50% 0;transform:translateY(-30px) rotate(var(--r,0deg));opacity:0;transition:opacity .3s,transform .7s cubic-bezier(.2,1.5,.4,1)}
+.stag.on{opacity:1;transform:rotate(var(--r,0deg))}
+.stag.on .card3{animation:sway 3.4s ease-in-out .7s infinite alternate}
+.flat .stag.on .card3{animation:none}
+@keyframes sway{from{transform:rotate(-2.5deg)}to{transform:rotate(2.5deg)}}
+.stag i{display:block;width:1.5px;height:var(--h,40px);background:#7a6a50}
+.card3{transform-origin:50% 0;width:clamp(96px,8.6vw,124px);padding:16px 10px 12px;background:#FBF8F2;clip-path:polygon(16% 0,84% 0,100% 12%,100% 100%,0 100%,0 12%);text-align:center;filter:drop-shadow(0 10px 14px rgba(0,0,0,.28));position:relative}
+.card3::before{content:"";position:absolute;left:50%;top:6px;width:7px;height:7px;margin-left:-3.5px;border-radius:50%;background:var(--linen-2);box-shadow:inset 0 0 0 1.5px #7a6a50}
+.card3 em{display:block;width:16px;height:16px;margin:4px auto 8px;border-radius:50%;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.card3 b{display:block;font:400 13px/1.2 var(--f-display);color:var(--ink)}
+.card3 span{display:block;margin-top:6px;font:700 13px var(--f-mono);color:var(--accent-text)}
+/* the step in hand */
+.now{position:absolute;z-index:3;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 112px);max-width:min(420px,34vw);opacity:0;transition:opacity .45s}
+.now.on{opacity:1}
+.now .nk{font:400 11px/1.2 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent-text)}
+.now h3{font:400 clamp(38px,4.2vw,60px)/1.02 var(--f-display);margin-top:10px}
+.now p{color:var(--ink-2);margin-top:12px;font-size:16.5px;max-width:32ch;min-height:4.7em}
+/* the receipt: prints out of the bottom of the screen, a line a piece, the total, then the wrapped stamp */
+.rcpt{position:absolute;z-index:4;right:clamp(28px,6vw,100px);bottom:0;width:clamp(240px,20vw,290px);padding:18px 18px 26px;background:#FFFEFB;font:400 12.5px/1.6 var(--f-mono);color:var(--ink);box-shadow:0 -10px 40px -16px rgba(0,0,0,.45);transform:translateY(calc((1 - var(--pr,0)) * 100%));-webkit-mask:linear-gradient(0deg,#000 calc(100% - 8px),transparent calc(100% - 8px)),radial-gradient(circle at 6px 0,transparent 5px,#000 5.5px) 0 0/12px 8px repeat-x;mask:linear-gradient(0deg,#000 calc(100% - 8px),transparent calc(100% - 8px)),radial-gradient(circle at 6px 0,transparent 5px,#000 5.5px) 0 0/12px 8px repeat-x}
+.rcpt .hd{text-align:center;font:400 18px/1.2 var(--f-display);padding:8px 0 10px;border-bottom:1px dashed rgba(31,29,27,.3);margin-bottom:8px}
+.rcpt .hd span{display:block;font:400 10px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.rcpt .ln{display:flex;justify-content:space-between;gap:10px}
+.rcpt .ln span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rcpt .rtot{display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(31,29,27,.3);font-weight:700;font-size:15px}
+.rcpt .ft{margin-top:10px;text-align:center;font-size:10.5px;color:var(--muted);letter-spacing:.06em}
+.rcpt .wr{position:absolute;right:14px;top:44%;padding:8px 10px;border:2.5px solid var(--accent);border-radius:4px;color:var(--accent);font:700 13px/1.1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;text-align:center;transform:rotate(-14deg) scale(1.7);opacity:0;mix-blend-mode:multiply;transition:transform .35s cubic-bezier(.3,1.6,.5,1),opacity .2s}
+.rcpt .wr b{display:block;font:700 22px/1 var(--f-display)}
+.rcpt .wr.on{opacity:.9;transform:rotate(-14deg) scale(1)}
+.facts{position:absolute;z-index:3;left:var(--gut);bottom:calc(24px + env(safe-area-inset-bottom,0px));display:flex;gap:22px;margin:0;opacity:0;transition:opacity .45s}
+.facts.on{opacity:1}
+.facts dt{font:400 10px/1.2 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.facts dd{margin:4px 0 0;font:400 24px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
 @media (max-width:820px){
-  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 86px);max-width:none;right:var(--gut);gap:14px}
+  .veil{background:linear-gradient(180deg,rgba(244,241,236,.94) 0%,rgba(244,241,236,.66) 34%,rgba(244,241,236,0) 50%)}
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 84px);max-width:none;right:var(--gut);gap:14px}
   .hero .acts{display:none}
-  .till{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr);bottom:calc(206px + env(safe-area-inset-bottom,0px))}
-  .till div{padding:9px 10px;border-bottom:0}
-  .till div:nth-child(2n){border-right:1px solid var(--line)}
-  .till div:last-child{border-right:0}
-  .till dt{font-size:8px;letter-spacing:.03em}
-  .till dd{font-size:clamp(15px,4.4vw,20px);white-space:normal;overflow-wrap:anywhere;line-height:1.05}
-  .card{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 18px}
-  .card p{font-size:14px;min-height:4.4em}
   .hint{display:none}
+  .rod{left:10px;right:10px;top:calc(env(safe-area-inset-top,0px) + 64px)}
+  .card3{width:64px;padding:12px 4px 8px}
+  .card3 b{font-size:9.5px}
+  .card3 span{font-size:10px}
+  .card3 em{width:11px;height:11px;margin-bottom:4px}
+  .now{top:calc(env(safe-area-inset-top,0px) + 210px);right:var(--gut);max-width:none}
+  .now h3{font-size:32px}
+  .now p{font-size:14.5px;min-height:3em}
+  .rcpt{right:10px;width:200px;font-size:11px;padding:12px 12px 20px}
+  .facts{display:none}
+  .facts dd{font-size:18px}
 }
 
 /* sections */
@@ -195,9 +229,12 @@ footer{background:var(--ink);color:var(--linen);padding:clamp(70px,9vw,120px) va
 </nav>
 
 <main>
-<section class="hero" id="top" aria-label="An outfit laid out piece by piece, scroll to put it together">
+<section class="hero" id="top" aria-label="An outfit put together piece by piece; scroll to put it together">
   <div class="stage" id="stage">
-    <canvas id="lay" aria-hidden="true"></canvas>
+{{#if $.film.poster}}    <img class="poster" src="{{$.film.poster|attr}}" alt="" aria-hidden="true">
+{{/if}}    <canvas id="film" role="img" aria-label="An outfit laid out piece by piece at {{brand.name|attr}}"></canvas>
+    <div class="veil" id="veil" aria-hidden="true"></div>
+    <div class="rod" id="rod" aria-hidden="true"><div class="stags" id="stags"></div></div>
     <div class="hero-copy" id="heroCopy">
       <p class="eyebrow">{{hero.eyebrow}}</p>
       <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
@@ -205,17 +242,14 @@ footer{background:var(--ink);color:var(--linen);padding:clamp(70px,9vw,120px) va
       <div class="acts"><a class="btn" href="#new">{{hero.cta}}</a><a class="btn ghost" href="#visit">{{hero.cta2}}</a></div>
     </div>
     <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
-    <dl class="till" id="till" aria-live="off">
+    <div class="now" id="now" aria-live="polite"><span class="nk"><span id="gNum">1</span> of 6 · <span id="gPiece">{{outfit.pieces.0.n}}</span></span><h3 id="gTitle">{{stages.0.n}}</h3><p id="gText">{{stages.0.c}}</p></div>
+    <dl class="facts" id="till" aria-live="off">
       <div><dt>{{till.labels.0}}</dt><dd id="kPieces">0</dd></div>
       <div><dt>{{till.labels.1}}</dt><dd id="kTotal">{{locale.currency}}0</dd></div>
       <div><dt>{{till.labels.2}}</dt><dd id="kSizes">—</dd></div>
       <div><dt>{{till.labels.3}}</dt><dd id="kReturns">—</dd></div>
     </dl>
-    <div class="card" id="card" aria-live="polite">
-      <div class="row"><span><b id="gNum">1</b> of 6</span><span class="piece" id="gPiece">{{outfit.pieces.0.n}}</span></div>
-      <h3 id="gTitle">{{stages.0.n}}</h3>
-      <p id="gText">{{stages.0.c}}</p>
-    </div>
+    <div class="rcpt" id="rcpt" aria-hidden="true"><div class="hd">{{brand.name}}<span>{{till.labels.1}}</span></div><div id="rLines"></div><div class="rtot"><span>{{till.labels.1}}</span><span id="rTot"></span></div><div class="ft">{{till.labels.3}} · {{till.returns}}</div><div class="wr" id="rWrap"><b>{{outfit.mark}}</b>{{outfit.boxWord}}</div></div>
   </div>
 </section>
 
@@ -368,86 +402,49 @@ const BOX={{$.boxJs|raw}};
 const TILL={{$.tillJs|raw}};
 const CUR={{locale.currency|js}};
 
-/* ============ GEOMETRY ============ */
-const cv=$('#lay'), ctx=cv.getContext('2d');
-let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null;
-// the table is 2 wide and 1.3 tall; on a phone it stands on end
-function fit(ax,ay,up){const w=ax[1]-ax[0], h=ay[1]-ay[0];const s=up?Math.min(w/1.3,h/2):Math.min(w/2,h/1.3);return{s,x:(ax[0]+ax[1])/2,y:(ay[0]+ay[1])/2};}
-function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
-  const top=Math.max(70,H*.1), tl=$('#till').getBoundingClientRect(), cd=$('#card').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
-  if(mobile){LA=LB=fit([W*.03,W*.97],[top,tl.top-stg.top-10],true);}
-  else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(tl.top,cd.top)-stg.top;
-    const side=fit([cr+20,W*.97],[H*.1,low-12]), under=fit([W*.05,W*.95],[cb+20,low-12]);
-    LA=side.s>=under.s*.8?side:under;LB=fit([W*.08,W*.92],[top,low-14]);}}
+/* ============ THE FILM ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint'), now=$('#now'), rod=$('#rod'), facts=$('#till'), rcpt=$('#rcpt');
+const STILL=/[?&]still\b/.test(location.search), FLAT=RM||STILL;
+if(FLAT)document.documentElement.classList.add('flat');
+{{$.film.runtime|raw}}
+const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fx:.62,fy:.5});
+let inFrame=false;try{inFrame=window.self!==window.top}catch(e){inFrame=true}
+let AUTO=inFrame&&scrollY<1&&!FLAT;
+if(AUTO)addEventListener('scroll',()=>{if(AUTO&&scrollY>=1){AUTO=false;film.poke()}},{passive:true});
 
-/* ============ DRAWING ============ */
-// where each piece lies on the table (landscape; on a phone the table turns, the pieces stay upright)
-const SPOT=[[-.48,-.1,.66,-.06],[.18,.04,.72,.07],[.76,.33,.42,-.24],[-.66,.4,.36,.12],[.62,-.36,.24,.18]];
-// coats and dresses are drawn a little smaller so they sit beside the other pieces
-const KSCALE={coat:.84,dress:.9,knit:.96};
-function table(c){const g=c.createLinearGradient(-1,-.65,1,.65);g.addColorStop(0,'#EFE9DF');g.addColorStop(1,'#E5DDD0');c.fillStyle=g;c.fillRect(-1,-.65,2,1.3);{const pt=c.createPattern(weave(false),'repeat');if(pt&&pt.setTransform){pt.setTransform(new DOMMatrix().scale(.003));c.fillStyle=pt;c.globalAlpha*=.5;c.fillRect(-1,-.65,2,1.3);c.globalAlpha/=.5;}const v=c.createRadialGradient(0,0,.3,0,0,1.2);v.addColorStop(0,'rgba(255,255,255,.12)');v.addColorStop(1,'rgba(60,45,30,.12)');c.fillStyle=v;c.fillRect(-1,-.65,2,1.3);}
-  c.strokeStyle='rgba(120,100,70,.03)';c.lineWidth=.0025;for(let y=-.65;y<.65;y+=.012){c.beginPath();c.moveTo(-1,y);c.lineTo(1,y+.004);c.stroke();}for(let x=-1;x<1;x+=.016){c.beginPath();c.moveTo(x,-.65);c.lineTo(x+.003,.65);c.stroke();}}
-function tag(c,x,y,price,k){if(k<=0)return;c.save();c.globalAlpha*=k;c.translate(x,y);if(mobile)c.rotate(Math.PI/2);c.rotate(-.12);c.strokeStyle='rgba(60,50,40,.6)';c.lineWidth=.003;c.beginPath();c.moveTo(-.06,-.02);c.quadraticCurveTo(-.03,-.06,0,-.02);c.stroke();
-  c.fillStyle='#FBF7EF';c.strokeStyle='rgba(0,0,0,.15)';c.beginPath();c.moveTo(0,-.035);c.lineTo(.13,-.035);c.lineTo(.13,.035);c.lineTo(0,.035);c.lineTo(-.018,0);c.closePath();c.fill();c.stroke();c.fillStyle='rgba(0,0,0,.2)';c.beginPath();c.arc(.004,0,.006,0,7);c.fill();
-  c.fillStyle='#1F1D1B';c.save();c.translate(.068,.012);c.scale(.0021,.0021);c.font='700 16px "Space Mono",monospace';c.textAlign='center';c.fillText(price,0,0,56);c.restore();c.restore();}
-function draw(c,f,time){table(c);
-  const cur=f[3]>0?3:f[2]>0?2:f[1]>0?1:0, focus=(cur<3?1-sm(seg(f[cur+1]||0,0,.3)):1)*(1-sm(seg(f[4],0,.3)));
-  // pieces drop onto the table, one per stage (the small things together)
-  const arrive=[f[0],f[1],f[2],f[3],f[3]].map((k,i)=>sm(seg(k,i===4?.35:0,i===4?.85:.7)));
-  OUTFIT.forEach((o,i)=>{const k=arrive[i];if(k<=0)return;const[x,y,s,a]=SPOT[i];c.save();c.globalAlpha*=Math.min(1,k*1.6);c.translate(x,y-(1-k)*.25);c.rotate(a+(1-k)*.2);if(mobile)c.rotate(Math.PI/2);const ks=KSCALE[o.kind]||1;c.scale(s*ks*(1+.08*(1-k)),s*ks*(1+.08*(1-k)));
-    if(o.kind==='extras'){sunglasses(c,'#2A2522');c.translate(-2.2,.4);c.scale(.7,.7);necklace(c,o.col);}else piece(c,o.kind,o.col,o.pat);c.restore();});
-  // the rest of the table dims a little round the piece going down now
-  if(focus>0){const[x,y,sc]=SPOT[cur];c.save();c.globalAlpha*=focus;const g=c.createRadialGradient(x,y,sc*.55,x,y,sc*1.5);g.addColorStop(0,'rgba(40,30,20,0)');g.addColorStop(1,'rgba(40,30,20,.11)');c.fillStyle=g;c.fillRect(-1.2,-.8,2.4,1.6);c.restore();}
-  // price tags, piece by piece
-  OUTFIT.forEach((o,i)=>{const[x,y,s]=SPOT[i];tag(c,x>.5?x-s*.95:x+s*.42,y-s*.38,money(o.p),sm(seg(f[4],i/5*.6,i/5*.6+.4)));});
-  // wrapped: tissue folds over, then the box closes and is tied
-  const tis=sm(seg(f[5],0,.45)), box=sm(seg(f[5],.4,.85));
-  if(tis>0){c.save();c.globalAlpha*=.92;[-1,1].forEach(s=>{c.fillStyle='rgba(250,248,244,.9)';c.beginPath();const e=s*1.05, mid=s*lerp(1.05,-.02,tis);c.moveTo(e,-.7);c.lineTo(mid,-.7);c.lineTo(mid-s*.04,.7);c.lineTo(e,.7);c.closePath();c.fill();
-    {const tr=rngD(s>0?41:43);for(let i=0;i<26;i++){const xx=lerp(e,mid,tr()), yy=-.7+tr()*1.4, a=tr()*3, L=.03+tr()*.06;c.strokeStyle=tr()<.5?'rgba(255,255,255,.45)':'rgba(170,160,145,.14)';c.lineWidth=.003;c.beginPath();c.moveTo(xx,yy);c.lineTo(xx+Math.cos(a)*L,yy+Math.sin(a)*L);c.lineTo(xx+Math.cos(a+.8)*L*1.4,yy+Math.sin(a+.8)*L*1.4);c.stroke();}}
-    c.strokeStyle='rgba(180,170,155,.35)';c.lineWidth=.003;for(let i=1;i<7;i++){const xx=lerp(e,mid,i/7);c.beginPath();c.moveTo(xx,-.7);c.quadraticCurveTo(xx+s*.03,0,xx-s*.01,.7);c.stroke();}});c.restore();}
-  if(box>0){c.save();c.globalAlpha*=box;c.translate(0,(1-box)*-.3);c.scale(lerp(1.08,1,box),lerp(1.08,1,box));const bw=1.3, bh=.86;
-    c.save();c.shadowColor='rgba(40,30,20,.32)';c.shadowBlur=26;c.shadowOffsetY=12;c.fillStyle=shade(BOX.col,-.25);c.fillRect(-bw/2,-bh/2+.02,bw,bh);c.restore();
-    c.fillStyle=shade(BOX.col,-.25);c.fillRect(-bw/2,-bh/2+.02,bw,bh);c.fillStyle=BOX.col;c.fillRect(-bw/2,-bh/2,bw,bh-.03);c.fillStyle='rgba(255,255,255,.07)';c.fillRect(-bw/2,-bh/2,bw,.05);{const pt=c.createPattern(weave(false),'repeat');if(pt&&pt.setTransform){pt.setTransform(new DOMMatrix().scale(.0018));c.fillStyle=pt;c.globalAlpha*=.4;c.fillRect(-bw/2,-bh/2,bw,bh-.03);c.globalAlpha/=.4;}const lg=c.createLinearGradient(-bw/2,-bh/2,bw/2,bh/2);lg.addColorStop(0,'rgba(255,255,255,.1)');lg.addColorStop(1,'rgba(0,0,0,.18)');c.fillStyle=lg;c.fillRect(-bw/2,-bh/2,bw,bh-.03);}
-    {const rv=c.createLinearGradient(-.045,0,.045,0);rv.addColorStop(0,'#DCD5C9');rv.addColorStop(.35,'#FFFFFF');rv.addColorStop(.6,'#F1ECE3');rv.addColorStop(1,'#D6CFC2');c.fillStyle=rv;c.fillRect(-.045,-bh/2,.09,bh-.03);const rh=c.createLinearGradient(0,-.06,0,.03);rh.addColorStop(0,'#DCD5C9');rh.addColorStop(.35,'#FFFFFF');rh.addColorStop(.6,'#F1ECE3');rh.addColorStop(1,'#D6CFC2');c.fillStyle=rh;c.fillRect(-bw/2,-.06,bw,.09);}
-    c.save();c.translate(0,-.015);[-1,1].forEach(sd=>{c.fillStyle='#F6F3EE';c.beginPath();c.moveTo(0,0);c.bezierCurveTo(sd*.08,-.16,sd*.26,-.12,sd*.2,.0);c.bezierCurveTo(sd*.16,.06,sd*.06,.04,0,0);c.fill();c.strokeStyle='rgba(0,0,0,.12)';c.lineWidth=.004;c.stroke();
-      c.beginPath();c.moveTo(0,.01);c.quadraticCurveTo(sd*.06,.14,sd*.14,.24);c.lineTo(sd*.1,.25);c.quadraticCurveTo(sd*.04,.14,-sd*.01,.02);c.closePath();c.fill();c.stroke();});c.fillStyle='#E8E2D8';c.beginPath();c.ellipse(0,0,.04,.035,0,0,7);c.fill();c.restore();
-    c.fillStyle='#FFFFFF';c.beginPath();c.arc(.4,.24,.1,0,7);c.fill();c.fillStyle=BOX.col;c.save();c.translate(.4,.255);if(mobile)c.rotate(Math.PI/2);c.scale(.0072,.0072);c.font='400 24px "Prata",serif';c.textAlign='center';c.textBaseline='middle';c.fillText(BOX.mark,0,-2);c.restore();c.restore();}
-  return arrive;}
-
-/* ============ HUD ============ */
+/* ============ TAGS AND RECEIPT ============ */
 const money=n=>CUR+(Math.abs(n-Math.round(n))<.005?Math.round(n).toLocaleString('en-GB'):n.toFixed(2));
-let shown=-1;
-function hud(p,f,arrive){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
-  if(idx!==shown){shown=idx;$('#gNum').textContent=idx+1;$('#gTitle').textContent=STAGES[idx].n;$('#gText').textContent=STAGES[idx].c;$('#gPiece').textContent=idx<4?OUTFIT[Math.min(idx,3)].n:idx===4?`${OUTFIT.length} ${PIECES}`:BOXWORD;}
-  const n=arrive.filter(k=>k>.5).length;$('#kPieces').textContent=n;$('#kTotal').textContent=money(OUTFIT.reduce((s,o,i)=>s+(arrive[i]>.5?o.p:0),0));
-  $('#kSizes').textContent=p>=STAGES[4].w[0]?TILL.sizes:'—';$('#kReturns').textContent=p>=STAGES[5].w[0]?TILL.returns:'—';}
 const PIECES={{words.pieces|js}}, BOXWORD={{outfit.boxWord|js}};
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const R=[-4,3,-2,4,-3], HS=[34,52,40,58,46];
+$('#stags').innerHTML=OUTFIT.map((o,i)=>`<span class="stag" style="--r:${R[i%5]}deg;--h:${HS[i%5]}px"><i></i><span class="card3"><em style="--c:${o.col}"></em><b>${esc(o.n)}</b><span>${money(o.p)}</span></span></span>`).join('');
+$('#rLines').innerHTML=OUTFIT.map(o=>`<div class="ln"><span>${esc(o.n)}</span><span>${money(o.p)}</span></div>`).join('');
+$('#rTot').textContent=money(OUTFIT.reduce((s,o)=>s+o.p,0));
+const tags=[...$('#stags').children];let shown=-1;
 
 /* ============ FRAME ============ */
-const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
 let cur=0;const t0=performance.now();
-function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#F4F1EC';ctx.fillRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
-  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
-  const S=lerp(LA.s,LB.s,m), X=lerp(LA.x,LB.x,m), Y=lerp(LA.y,LB.y,m);
-  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
-  ctx.globalAlpha=mobile?.25+.75*k:1;
-  ctx.save();ctx.translate(X,Y);if(mobile)ctx.rotate(-Math.PI/2);ctx.scale(S,S);
-  ctx.save();ctx.shadowColor='rgba(31,29,27,.2)';ctx.shadowBlur=40;ctx.shadowOffsetY=14;ctx.fillStyle='#EAE4DA';ctx.fillRect(-1,-.65,2,1.3);ctx.restore();
-  ctx.save();ctx.beginPath();ctx.rect(-1,-.65,2,1.3);ctx.clip();const arrive=draw(ctx,f,time);ctx.restore();
-  ctx.restore();ctx.globalAlpha=1;
-  copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
-  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,f,arrive);}
 function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
-// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
-// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+const mobile=()=>innerWidth<820;
+function frame(p,time){
+  const P=FLAT?1:p, f=STAGES.map(s=>FLAT?1:seg(p,s.w[0],s.w[1]));
+  film.draw(FLAT?1:AUTO?(time/Math.max(4,film.seconds()))%1:clamp(seg(P,.02,.94)),time);
+  const k=mobile()?seg(p,.01,.05):seg(p,.06,.12);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);const on=FLAT||k>=1;[now,rod,facts].forEach(el=>el.classList.toggle('on',on));
+  let idx=0;STAGES.forEach((s,i)=>{if(P>=s.w[0])idx=i;});
+  if(idx!==shown){shown=idx;$('#gNum').textContent=idx+1;$('#gTitle').textContent=STAGES[idx].n;$('#gText').textContent=STAGES[idx].c;$('#gPiece').textContent=idx<4?OUTFIT[Math.min(idx,3)].n:idx===4?`${OUTFIT.length} ${PIECES}`:BOXWORD;}
+  // a piece a step for the first four (the last two pieces together on the fourth), then the till
+  const arrive=[f[0],f[1],f[2],f[3],f[3]].map((k,i)=>FLAT?1:sm(seg(k,i===4?.35:0,i===4?.85:.7)));
+  tags.forEach((el,i)=>el.classList.toggle('on',on&&arrive[i]>.5));
+  const n=arrive.filter(x=>x>.5).length;$('#kPieces').textContent=n;$('#kTotal').textContent=money(OUTFIT.reduce((s,o,i)=>s+(arrive[i]>.5?o.p:0),0));
+  $('#kSizes').textContent=P>=STAGES[4].w[0]?TILL.sizes:'—';$('#kReturns').textContent=P>=STAGES[5].w[0]?TILL.returns:'—';
+  rcpt.style.setProperty('--pr',(FLAT?1:sm(seg(f[4],.1,.8))).toFixed(3));$('#rWrap').classList.toggle('on',f[5]>.4);
+}
 let gLast=-1e9,gForce=90;
-addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
-function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+addEventListener('resize',()=>{gForce=30;film.size();});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){if(AUTO)return false;const r=$('#stage').getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
   if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
 function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
-layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
-if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
 requestAnimationFrame(loop);
 })();
 </script>
@@ -524,4 +521,14 @@ let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>PRODUCT
 })();
 </script>
 
+<script>
+/* the title arrives word by word */
+(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;let k=0;
+ // each word in its own clipped box; a block inside the title (a second line) keeps its place and has its words split too
+ const unit=(box,el)=>{const w=document.createElement('span');w.className='w';el.style.animationDelay=(150+k++*80)+'ms';w.appendChild(el);box.appendChild(w)};
+ const split=box=>{const parts=[...box.childNodes],blk=parts.map(n=>n.nodeType===1&&getComputedStyle(n).display==='block');box.textContent='';
+  parts.forEach((n,j)=>{if(n.nodeType===3)n.textContent.split(/(\s+)/).forEach(x=>{if(!x)return;if(/^\s+$/.test(x)){box.appendChild(document.createTextNode(' '));return}const i=document.createElement('i');i.textContent=x;unit(box,i)});
+   else if(n.nodeType===1){if(blk[j]){box.appendChild(n);if(n.children.length===0)split(n);return}const i=document.createElement('i');i.appendChild(n);unit(box,i)}});};
+ split(h);h.classList.add('split')})();
+</script>
 </body></html>

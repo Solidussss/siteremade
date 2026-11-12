@@ -5,6 +5,7 @@
 'use strict';
 const { FILTERS } = require('../../engine/template');
 const js = FILTERS.js;
+const film = require('../../engine/film');
 
 const WINDOWS = ['[0,.15]', '[.15,.3]', '[.3,.45]', '[.45,.62]', '[.62,.8]', '[.8,1]'];
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -22,6 +23,7 @@ function derive(c) {
     tel: '',
     businessSaid: c.business.name.replace(/\s*&\s*/g, ' and '),
     brandSaid: c.brand.name.replace(/\s*&\s*/g, ' and '),
+    film: film.derive(c, null, [47, 63, 181]),
     stagesJs: c.stages.map((s, i) => ` {n:${js(s.n)},c:${js(s.c)},w:${WINDOWS[i]}}`).join(',\n'),
     outfitJs: O.map((o, i) => ` {kind:${js(FIXED[i] || o.kind)},col:${js(o.col)},pat:${js(o.pat)},n:${js(o.n)},p:${num(o.p)}}`).join(',\n'),
     boxJs: `{col:${js(c.theme.accent)},mark:${js(c.outfit.mark)}}`,

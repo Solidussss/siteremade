@@ -1,12 +1,13 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>{{business.name}}</title>
+<meta name="description" content="{{hero.lede|attr}}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,500;1,500&family=Onest:wght@400;500;600;700&family=Red+Hat+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* Layout: a coach or consultant. One pinned map of the ground between where a client is and where they want to be,
-   walked as you scroll (where you stand, the summit you pick, the route, the sessions along it, the hard crossing, the
-   top); then what a client needs: the programmes, a few questions that point to the right one, and a free first call. */
+/* Layout: a coach or consultant. The real room plays as you scroll (the coach's own video or photos) with a route
+   drawn over it like a trail on a map: from where the client stands to the summit, the three goals flagged along the
+   way, the line inking itself in and a walker moving up it session by session; then what a client needs: the programmes, a few questions that point to the right one, and a free first call. */
 :root{
   color-scheme:light;
   --paper:#F5F4EF;
@@ -57,46 +58,64 @@ p{margin:0}
 @media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
 @media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:23px}}
 
-/* hero: the map */
+/* hero: the real room, a trail drawn over it from where you are to the top */
 .hero{position:relative;height:560vh}
 .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--paper)}
-#map{position:absolute;inset:0;width:100%;height:100%;display:block}
-.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 108px);max-width:520px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
-.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(245,244,239,.97),rgba(245,244,239,.82) 55%,rgba(245,244,239,0));pointer-events:none}
-.hero h1{font-size:clamp(3rem,min(6.4vw,9.6vh),6.4rem)}
+.stage .poster,#film{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.stage .poster{object-fit:cover}
+.veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(245,244,239,.94) 0%,rgba(245,244,239,.72) 32%,rgba(245,244,239,0) 54%),linear-gradient(0deg,rgba(245,244,239,.6),rgba(245,244,239,0) 26%)}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 104px);max-width:540px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero h1{font-size:clamp(3rem,min(6vw,9.4vh),6rem)}
 .hero h1 em{display:block;color:var(--accent-text)}
-.lede{color:var(--ink-2);max-width:42ch;font-size:clamp(16px,1.3vw,18px)}
-.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
-.card{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 2*var(--gut)));padding:16px 20px 18px;background:var(--sheet);border-radius:16px;box-shadow:0 22px 56px -30px rgba(28,35,33,.4),0 0 0 1px rgba(28,35,33,.06)}
-.card .row{display:flex;justify-content:space-between;gap:10px;font:400 11.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.card .wk{color:var(--accent-text)}
-.card h3{font-size:clamp(30px,2.8vw,40px);margin-top:10px}
-.card p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.2em}
-.log{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;border-radius:16px;background:var(--sheet);box-shadow:0 22px 56px -30px rgba(28,35,33,.4),0 0 0 1px rgba(28,35,33,.06);overflow:hidden}
-.log div{padding:12px 18px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
-.log div:nth-child(2n){border-right:0}
-.log div:nth-child(n+3){border-bottom:0}
-.log dt{font:400 10.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.log dd{margin:6px 0 0;font:600 26px/1 var(--f-body);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
-.log dd small{font:400 11px var(--f-mono);color:var(--muted);margin-left:3px;letter-spacing:0}
-.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap}
-.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+.lede{color:var(--ink-2);max-width:44ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.split .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.22em;margin-bottom:-.14em}
+.split .w{padding-right:.1em;margin-right:-.1em}
+.split .w>i{display:inline-block;font-style:inherit;animation:wrise .9s cubic-bezier(.16,1,.3,1) both}
+@keyframes wrise{from{transform:translateY(108%)}}
+.hint{position:absolute;z-index:4;left:var(--gut);bottom:calc(30px + env(safe-area-inset-bottom,0px));font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:10px;pointer-events:none}
+.hint i{display:block;width:1px;height:22px;background:linear-gradient(var(--muted),transparent);animation:cue 1.6s ease-in-out infinite}
 @keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
-/* short laptop screens: a little less type so the copy clears the card */
-@media (min-width:821px) and (max-height:780px){.hero-copy{gap:14px}.hero h1{font-size:clamp(3rem,min(6.4vw,8.8vh),6.4rem)}.lede{font-size:15px}}
+/* the trail */
+.trail{position:absolute;inset:0;z-index:2;pointer-events:none;opacity:0;transition:opacity .5s}
+.trail.on{opacity:1}
+.trail svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.trail .ghost{fill:none;stroke:rgba(255,255,255,.85);stroke-width:3;stroke-dasharray:2 10;stroke-linecap:round;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))}
+.trail .ink{fill:none;stroke:var(--accent);stroke-width:5;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))}
+.trail .walker{fill:#fff;stroke:var(--accent);stroke-width:4;filter:drop-shadow(0 3px 8px rgba(0,0,0,.4))}
+.trail .ses{fill:#fff;stroke:var(--accent);stroke-width:2;opacity:0;transition:opacity .25s}
+.trail .ses.on{opacity:1}
+.wp{position:absolute;z-index:3;left:var(--x);top:var(--y);transform:translate(-4px,-100%);display:flex;align-items:flex-end;gap:0;pointer-events:none;opacity:0;transition:opacity .4s}
+.wp.on{opacity:1}
+.wp i{display:block;width:2px;height:44px;background:#2b2b2b;border-radius:1px}
+.wp span{margin:0 0 22px 0;padding:7px 12px 7px 10px;background:var(--flag);color:#fff;font:600 13px/1.1 var(--f-body);white-space:nowrap;clip-path:polygon(0 0,100% 0,calc(100% - 10px) 50%,100% 100%,0 100%);padding-right:22px;box-shadow:0 8px 16px -8px rgba(0,0,0,.5);transform-origin:0 50%;transform:scaleX(.3);transition:transform .5s cubic-bezier(.2,1.4,.4,1)}
+.wp.on span{transform:none}
+.wp.met span{background:var(--accent)}
+.wp.met span::before{content:"✓ "}
+.wp.start i{display:none}
+.wp.start span{margin:0;background:#fff;color:var(--ink);clip-path:none;padding:6px 10px;border-radius:99px;font:500 11px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;transform:translate(-30%,-14px)}
+/* the step in hand, and the log */
+.now{position:absolute;z-index:3;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 112px);max-width:min(420px,36vw);padding:20px 22px;border-radius:16px;background:rgba(255,255,255,.86);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 20px 50px -30px rgba(0,0,0,.45);opacity:0;transition:opacity .45s}
+.now.on{opacity:1}
+.now .k{font:500 11px/1.2 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent-text)}
+.now h3{font:400 clamp(34px,3.6vw,52px)/1.02 var(--f-display);margin-top:10px}
+.now p{color:var(--ink-2);margin-top:10px;font-size:16px;min-height:4.6em}
+.now dl{display:flex;gap:20px;margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line)}
+.now dt{font:400 10px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.now dd{margin:4px 0 0;font:400 24px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.now dd small{font:400 11px var(--f-mono);color:var(--muted);margin-left:2px}
 @media (max-width:820px){
-  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 86px);max-width:none;right:var(--gut);gap:14px}
+  .veil{background:linear-gradient(180deg,rgba(245,244,239,.94) 0%,rgba(245,244,239,.66) 34%,rgba(245,244,239,0) 50%)}
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 84px);max-width:none;right:var(--gut);gap:14px}
   .hero .acts{display:none}
-  .log{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:repeat(4,minmax(0,1fr));bottom:calc(204px + env(safe-area-inset-bottom,0px))}
-  .log div{padding:9px 10px;border-bottom:0}
-  .log div:nth-child(2n){border-right:1px solid var(--line)}
-  .log div:last-child{border-right:0}
-  .log dt{font-size:8.5px;letter-spacing:.03em}
-  .log dd{font-size:clamp(16px,4.6vw,22px);white-space:normal;overflow-wrap:anywhere;line-height:1.05}
-  .log dd small{display:none}
-  .card{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 18px}
-  .card p{font-size:14px;min-height:4.4em}
   .hint{display:none}
+  .now{top:calc(env(safe-area-inset-top,0px) + 70px);left:10px;right:10px;max-width:none;padding:14px 16px}
+  .now h3{font-size:28px}
+  .now p{font-size:14px;min-height:3em}
+  .now dl{gap:12px}
+  .now dd{font-size:19px}
+  .wp span{font-size:11.5px;padding:5px 18px 5px 8px;margin-bottom:16px}
+  .wp i{height:34px}
 }
 
 /* sections */
@@ -190,9 +209,12 @@ footer{background:var(--ink);color:var(--paper);padding:clamp(70px,9vw,120px) va
 </nav>
 
 <main>
-<section class="hero" id="top" aria-label="A coaching programme drawn as a route on a map, scroll to walk it">
+<section class="hero" id="top" aria-label="A coaching programme walked as a route; scroll to walk it">
   <div class="stage" id="stage">
-    <canvas id="map" aria-hidden="true"></canvas>
+{{#if $.film.poster}}    <img class="poster" src="{{$.film.poster|attr}}" alt="" aria-hidden="true">
+{{/if}}    <canvas id="film" role="img" aria-label="The room where {{brand.name|attr}} coaches, through a programme"></canvas>
+    <div class="veil" id="veil" aria-hidden="true"></div>
+    <div class="trail" id="trail" aria-hidden="true"><svg id="trailSvg"><path class="ghost" id="tGhost"/><path class="ink" id="tInk"/><g id="tSes"></g><circle class="walker" id="tWalk" r="9"/></svg></div>
     <div class="hero-copy" id="heroCopy">
       <p class="eyebrow">{{hero.eyebrow}}</p>
       <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
@@ -200,17 +222,13 @@ footer{background:var(--ink);color:var(--paper);padding:clamp(70px,9vw,120px) va
       <div class="acts"><a class="btn" href="#call">{{hero.cta}}</a><a class="btn ghost" href="#programmes">{{hero.cta2}}</a></div>
     </div>
     <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
-    <dl class="log" id="log" aria-live="off">
-      <div><dt>{{log.labels.0}}</dt><dd id="kWeek">0</dd></div>
-      <div><dt>{{log.labels.1}}</dt><dd id="kSess">0</dd></div>
-      <div><dt>{{log.labels.2}}</dt><dd id="kGoals">0<small>/3</small></dd></div>
-      <div><dt>{{log.labels.3}}</dt><dd id="kClimb">0<small>%</small></dd></div>
-    </dl>
-    <div class="card" id="card" aria-live="polite">
-      <div class="row"><span><b id="gNum">1</b> of 6</span><span class="wk" id="gWeek">{{log.weekWord}} 0</span></div>
-      <h3 id="gTitle">{{stages.0.n}}</h3>
-      <p id="gText">{{stages.0.c}}</p>
-    </div>
+    <div class="now" id="now" aria-live="polite"><span class="k"><span id="gNum">1</span> of 6 · <span id="gWeek">{{log.weekWord}} 0</span></span><h3 id="gTitle">{{stages.0.n}}</h3><p id="gText">{{stages.0.c}}</p>
+      <dl id="log" aria-live="off">
+        <div><dt>{{log.labels.0}}</dt><dd id="kWeek">0</dd></div>
+        <div><dt>{{log.labels.1}}</dt><dd id="kSess">0</dd></div>
+        <div><dt>{{log.labels.2}}</dt><dd id="kGoals">0<small>/3</small></dd></div>
+        <div><dt>{{log.labels.3}}</dt><dd id="kClimb">0<small>%</small></dd></div>
+      </dl></div>
   </div>
 </section>
 
@@ -354,87 +372,58 @@ const ROUTEWORDS={{$.routeJs|raw}};
 const LAND={{$.landJs|raw}};
 const WEEKWORD={{log.weekWord|js}};
 
-/* ============ GEOMETRY ============ */
-const cv=$('#map'), ctx=cv.getContext('2d');
-let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null;
-const layer=document.createElement('canvas');
-// the map is 2.2 wide and 1.4 tall; on a phone it stands on end, the summit at the top
-function fit(ax,ay,up){const w=ax[1]-ax[0], h=ay[1]-ay[0];const s=up?Math.min(w/1.4,h/2.2):Math.min(w/2.2,h/1.4);return{s,x:(ax[0]+ax[1])/2,y:(ay[0]+ay[1])/2};}
-function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
-  const top=Math.max(70,H*.1), lg=$('#log').getBoundingClientRect(), cd=$('#card').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
-  if(mobile){LA=LB=fit([W*.03,W*.97],[top,lg.top-stg.top-10],true);}
-  else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(lg.top,cd.top)-stg.top;
-    const side=fit([cr+20,W*.97],[H*.1,low-12]), under=fit([W*.05,W*.95],[cb+20,low-12]);
-    LA=side.s>=under.s*.8?side:under;LB=fit([W*.06,W*.94],[top,low-14]);}
-  // the terrain is drawn once at the biggest size it's shown at
-  const s=Math.max(LA.s,LB.s)*DPR;layer.width=Math.ceil(2.2*s);layer.height=Math.ceil(1.4*s);const l=layer.getContext('2d');l.setTransform(s,0,0,s,1.1*s,.7*s);terrain(l,LAND);}
+/* ============ THE FILM ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint'), now=$('#now'), trail=$('#trail');
+const STILL=/[?&]still\b/.test(location.search), FLAT=RM||STILL;
+if(FLAT)document.documentElement.classList.add('flat');
+{{$.film.runtime|raw}}
+const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fx:.62,fy:.5});
+let inFrame=false;try{inFrame=window.self!==window.top}catch(e){inFrame=true}
+let AUTO=inFrame&&scrollY<1&&!FLAT;
+if(AUTO)addEventListener('scroll',()=>{if(AUTO&&scrollY>=1){AUTO=false;film.poke()}},{passive:true});
 
-/* ============ DRAWING ============ */
+/* ============ THE TRAIL ============ */
+// a winding line from where you stand (low) to the summit (high), across the right of the picture, laid out to the
+// screen; the goals sit a third, two thirds and all the way along it, a small mark for each session between
 const GOALAT=[.32,.68,1];
-function scene(c,f,time){c.drawImage(layer,-1.1,-.7,2.2,1.4);
-  // the walk: up to the river in the sessions, across it once the bridge is built, then on to the top
-  const reveal=sm(seg(f[1],0,.8)), plan=sm(f[2]), walk=(CROSS-.02)*sm(f[3])+.08*sm(seg(f[4],.55,1))+(1-CROSS-.06)*sm(f[5]);
-  const pos=at(walk);
-  // fog over everything you can't see yet
-  const fog=1-reveal;if(fog>0){c.save();const g=c.createRadialGradient(ROUTE[0][0],ROUTE[0][1],.08,ROUTE[0][0],ROUTE[0][1],.45+1.8*(1-fog));g.addColorStop(0,'rgba(245,244,239,0)');g.addColorStop(1,`rgba(245,244,239,${.7*fog+.06})`);c.fillStyle=g;c.fillRect(-1.2,-.8,2.4,1.6);c.restore();}
-  // the river shines at the hard part
-  const hard=sm(seg(f[4],0,.3))*(1-sm(seg(f[5],0,.4)));if(hard>0){c.save();c.globalAlpha*=hard;c.strokeStyle='rgba(60,120,170,.6)';c.lineWidth=.05;c.lineCap='round';c.beginPath();catmull(RIVER,10).forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.stroke();c.restore();}
-  const storm=sm(seg(f[4],0,.3))*(1-sm(seg(f[4],.75,1)));if(storm>0){c.save();c.fillStyle=`rgba(60,72,88,${.3*storm})`;c.fillRect(-1.2,-.8,2.4,1.6);c.strokeStyle=`rgba(220,230,240,${.5*storm})`;c.lineWidth=.003;for(let i=0;i<70;i++){const x=-1.1+((i*37)%100)/100*2.3, y=-.75+((i*61+Math.floor(time*30)*7)%100)/100*1.5;c.beginPath();c.moveTo(x,y);c.lineTo(x-.02,y+.06);c.stroke();}c.restore();}
-  // the route: planned as a dashed line, walked as a solid one
-  if(plan>0){const n=Math.max(2,Math.round(PATH.length*plan));c.save();c.globalAlpha*=.16;c.strokeStyle=LAND.route;c.lineWidth=.06;c.lineCap='round';c.lineJoin='round';c.beginPath();PATH.slice(0,n).forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.stroke();c.restore();
-    c.save();c.strokeStyle=LAND.route;c.lineWidth=.012;c.setLineDash([.024,.014]);c.lineCap='round';c.beginPath();PATH.slice(0,n).forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.stroke();c.restore();}
-  if(walk>0){c.save();c.globalAlpha*=.3;c.strokeStyle=LAND.route;c.lineWidth=.14;c.lineCap='round';c.lineJoin='round';c.beginPath();const d0=walk*TOT;PATH.forEach(([x,y],i)=>{if(LEN[i]<=d0)i?c.lineTo(x,y):c.moveTo(x,y);});c.lineTo(pos[0],pos[1]);c.stroke();c.restore();
-    c.save();c.strokeStyle=LAND.route;c.lineWidth=.024;c.lineCap='round';c.lineJoin='round';c.beginPath();const d=walk*TOT;PATH.forEach(([x,y],i)=>{if(LEN[i]<=d)i?c.lineTo(x,y):c.moveTo(x,y);});c.lineTo(pos[0],pos[1]);c.stroke();c.restore();}
-  // the sessions as stops along the route
-  // the sessions pop up along the route as they start, and fill in as you pass them
-  const S=ROUTEWORDS.sessions;for(let i=1;i<=S;i++){const pk=sm(seg(f[3],(i-1)/S*.4,(i-1)/S*.4+.15));if(pk<=0)continue;const k=i/(S+1), p=at(k);const done=walk>=k;c.fillStyle=done?LAND.route:'#FFFFFF';c.strokeStyle=LAND.route;c.lineWidth=.004;c.lineWidth=.006;c.beginPath();c.arc(p[0],p[1],.03*pk,0,7);c.fill();c.stroke();}
-  // the bridge over the crossing
-  const br=sm(seg(f[4],.2,.7));if(br>0){const p=at(CROSS), q=at(CROSS+.03), a=Math.atan2(q[1]-p[1],q[0]-p[0]);c.save();c.translate(p[0],p[1]);c.rotate(a);c.fillStyle='#8A6B4E';const n=Math.round(9*br);for(let i=0;i<n;i++)c.fillRect(-.06+i*.014,-.028,.01,.056);c.strokeStyle='#5B4636';c.lineWidth=.004;c.beginPath();c.moveTo(-.065,-.03);c.lineTo(-.065+.13*br,-.03);c.moveTo(-.065,.03);c.lineTo(-.065+.13*br,.03);c.stroke();c.restore();}
-  // goals as flags; the summit glows at the top
-  const top=sm(seg(f[5],.5,1));if(top>0){c.save();const g=c.createRadialGradient(SUMMIT[0],SUMMIT[1],0,SUMMIT[0],SUMMIT[1],.5);g.addColorStop(0,`rgba(255,214,150,${.55*top})`);g.addColorStop(1,'rgba(255,214,150,0)');c.fillStyle=g;c.fillRect(-1.2,-.8,2.4,1.6);c.restore();}
-  GOALAT.forEach((g,i)=>{const p=at(g), k=sm(seg(f[1],.35+i*.15,.6+i*.15));flag(c,p[0],p[1],k,LAND.flag,ROUTEWORDS.goals[i],walk>=g-.005);});
-  // you
-  const pulse=RM?0:(time*1.2)%1;c.save();c.fillStyle=`rgba(224,135,78,${.35*(1-pulse)})`;c.beginPath();c.arc(pos[0],pos[1],.02+.05*pulse,0,7);c.fill();c.fillStyle='#FFFFFF';c.beginPath();c.arc(pos[0],pos[1],.022,0,7);c.fill();c.fillStyle=LAND.flag;c.beginPath();c.arc(pos[0],pos[1],.014,0,7);c.fill();c.restore();
-  const sl=1-sm(seg(f[2],0,.4));if(sl>0){c.save();c.globalAlpha*=sl;c.translate(pos[0],pos[1]);if(mobile)c.rotate(Math.PI/2);const w=ROUTEWORDS.start.length*.0145+.03;c.fillStyle='#1C2321';c.beginPath();c.roundRect(.03,-.065,w,.045,.012);c.fill();text(c,ROUTEWORDS.start,.045,-.034,.026,'left','#FFFFFF',600);c.restore();}
-  return walk;}
-
-/* ============ HUD ============ */
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const stage=$('#stage'), svgEl=$('#trailSvg'), ghost=$('#tGhost'), ink=$('#tInk'), walker=$('#tWalk'), sesG=$('#tSes');
+const wps=[['start',ROUTEWORDS.start],...ROUTEWORDS.goals.map((g,i)=>['g'+i,g])].map(([k,label])=>{const el=document.createElement('div');el.className='wp'+(k==='start'?' start':'');el.style.setProperty('--flag',LAND.flag);el.innerHTML=`<i></i><span>${esc(label)}</span>`;stage.appendChild(el);return el;});
+let L=1, sess=[];
+function lay(){const w=stage.clientWidth,h=stage.clientHeight,m=w<820;svgEl.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  const P=m?[[.14,.93],[.42,.86],[.26,.77],[.58,.69],[.4,.6],[.64,.52],[.56,.43]]:[[.5,.9],[.66,.8],[.58,.66],[.78,.58],[.7,.44],[.86,.34],[.84,.2]];
+  const pts=P.map(([x,y])=>[x*w,y*h]);let d=`M${pts[0][0]} ${pts[0][1]}`;for(let i=1;i<pts.length;i++){const [x0,y0]=pts[i-1],[x1,y1]=pts[i];d+=` C${x0} ${(y0+y1)/2} ${x1} ${(y0+y1)/2} ${x1} ${y1}`;}
+  ghost.setAttribute('d',d);ink.setAttribute('d',d);L=ink.getTotalLength();ink.style.strokeDasharray=L;
+  const S=ROUTEWORDS.sessions;sesG.innerHTML=Array.from({length:S},(_,i)=>{const q=ink.getPointAtLength(L*(i+1)/(S+1));return `<circle class="ses" cx="${q.x.toFixed(1)}" cy="${q.y.toFixed(1)}" r="4"/>`;}).join('');sess=[...sesG.children];
+  [0,...GOALAT].forEach((g,i)=>{const q=ink.getPointAtLength(L*g);wps[i].style.setProperty('--x',q.x+'px');wps[i].style.setProperty('--y',q.y+'px');});}
+lay();addEventListener('resize',lay);
 let shown=-1;
-function hud(p,f,walk){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
-  if(idx!==shown){shown=idx;$('#gNum').textContent=idx+1;$('#gTitle').textContent=STAGES[idx].n;$('#gText').textContent=STAGES[idx].c;}
-  const S=ROUTEWORDS.sessions, done=Math.min(S,Math.floor(walk*(S+1)+1e-6));const wk=p>=STAGES[5].w[0]+.12?ROUTEWORDS.weeks:Math.round(ROUTEWORDS.weeks*done/S);
-  $('#gWeek').textContent=`${WEEKWORD} ${wk}`;$('#kWeek').textContent=wk;$('#kSess').textContent=done;
-  $('#kGoals').innerHTML=`${GOALAT.filter(g=>walk>=g-.005).length}<small>/3</small>`;$('#kClimb').innerHTML=`${Math.round(100*walk)}<small>%</small>`;}
 
 /* ============ FRAME ============ */
-const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
 let cur=0;const t0=performance.now();
-let CLOTH=null;
-function buildCloth(){const d=document.createElement('canvas');d.width=cv.width;d.height=cv.height;const g=d.getContext('2d');g.setTransform(DPR,0,0,DPR,0,0);g.fillStyle='#EFEDE5';g.fillRect(0,0,W,H);let q=3;const r=()=>{q=(q*16807)%2147483647;return q/2147483647;};
-  for(let y=0;y<H;y+=2.4){g.fillStyle=`rgba(90,85,70,${.02+r()*.035})`;g.fillRect(0,y,W,1);}for(let x=0;x<W;x+=2.4){g.fillStyle=`rgba(90,85,70,${.015+r()*.03})`;g.fillRect(x,0,1,H);}for(let i=0;i<W*H/1100;i++){g.fillStyle=r()<.5?'rgba(255,255,255,.1)':'rgba(90,85,70,.035)';g.fillRect(r()*W,r()*H,r()<.5?3+r()*7:1,r()<.5?1:3+r()*7);}
-  const v=g.createRadialGradient(W*.6,H*.5,Math.min(W,H)*.3,W*.6,H*.5,Math.max(W,H)*.8);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(60,55,40,.1)');g.fillStyle=v;g.fillRect(0,0,W,H);CLOTH=d;}
-function frame(p,time){ctx.setTransform(1,0,0,1,0,0);if(!CLOTH||CLOTH.width!==cv.width||CLOTH.height!==cv.height)buildCloth();ctx.drawImage(CLOTH,0,0);ctx.setTransform(DPR,0,0,DPR,0,0);
-  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
-  const S=lerp(LA.s,LB.s,m), X=lerp(LA.x,LB.x,m), Y=lerp(LA.y,LB.y,m);
-  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
-  ctx.globalAlpha=mobile?.25+.75*k:1;
-  ctx.save();ctx.translate(X,Y);if(mobile)ctx.rotate(-Math.PI/2);ctx.scale(S,S);
-  ctx.save();ctx.shadowColor='rgba(28,35,33,.22)';ctx.shadowBlur=40;ctx.shadowOffsetY=14;ctx.fillStyle='#EEEADD';ctx.beginPath();ctx.roundRect(-1.1,-.7,2.2,1.4,.03);ctx.fill();ctx.restore();
-  ctx.save();ctx.beginPath();ctx.roundRect(-1.1,-.7,2.2,1.4,.03);ctx.clip();const walk=scene(ctx,f,time);folds(ctx);ctx.restore();compass(ctx,time);
-  ctx.restore();ctx.globalAlpha=1;
-  copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
-  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,f,walk);}
 function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
-// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
-// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+const mobile=()=>innerWidth<820;
+function frame(p,time){
+  const P=FLAT?1:p, f=STAGES.map(s=>FLAT?1:seg(p,s.w[0],s.w[1]));
+  film.draw(FLAT?1:AUTO?(time/Math.max(4,film.seconds()))%1:clamp(seg(P,.02,.94)),time);
+  const k=mobile()?seg(p,.01,.05):seg(p,.06,.12);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);const on=FLAT||k>=1;now.classList.toggle('on',on);trail.classList.toggle('on',on);
+  let idx=0;STAGES.forEach((s,i)=>{if(P>=s.w[0])idx=i;});
+  if(idx!==shown){shown=idx;$('#gNum').textContent=idx+1;$('#gTitle').textContent=STAGES[idx].n;$('#gText').textContent=STAGES[idx].c;}
+  // the goals are flagged while you pick the summit; the line inks in through the sessions, slows at the hard part, reaches the top
+  const walk=FLAT?1:clamp(.55*sm(f[3])+.15*sm(f[4])+.3*sm(f[5]));
+  ink.style.strokeDashoffset=(L*(1-walk)).toFixed(1);const q=ink.getPointAtLength(L*walk);walker.setAttribute('cx',q.x.toFixed(1));walker.setAttribute('cy',q.y.toFixed(1));
+  wps[0].classList.toggle('on',on);GOALAT.forEach((g,i)=>{const w=wps[i+1];w.classList.toggle('on',on&&(FLAT||f[1]>.25+i*.2));w.classList.toggle('met',walk>=g-.005);});
+  const S=ROUTEWORDS.sessions, done=Math.min(S,Math.floor(walk*(S+1)+1e-6));sess.forEach((c,i)=>c.classList.toggle('on',i<done));
+  const wk=P>=STAGES[5].w[0]+.12?ROUTEWORDS.weeks:Math.round(ROUTEWORDS.weeks*done/S);
+  $('#gWeek').textContent=`${WEEKWORD} ${wk}`;$('#kWeek').textContent=wk;$('#kSess').textContent=done;
+  $('#kGoals').innerHTML=`${GOALAT.filter(g=>walk>=g-.005).length}<small>/3</small>`;$('#kClimb').innerHTML=`${Math.round(100*walk)}<small>%</small>`;
+}
 let gLast=-1e9,gForce=90;
-addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
-function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+addEventListener('resize',()=>{gForce=30;film.size();});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){if(AUTO)return false;const r=$('#stage').getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
   if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
 function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
-layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
-if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
 requestAnimationFrame(loop);
 })();
 </script>
@@ -509,4 +498,14 @@ let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(portrait,12
 })();
 </script>
 
+<script>
+/* the title arrives word by word */
+(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;let k=0;
+ // each word in its own clipped box; a block inside the title (a second line) keeps its place and has its words split too
+ const unit=(box,el)=>{const w=document.createElement('span');w.className='w';el.style.animationDelay=(150+k++*80)+'ms';w.appendChild(el);box.appendChild(w)};
+ const split=box=>{const parts=[...box.childNodes],blk=parts.map(n=>n.nodeType===1&&getComputedStyle(n).display==='block');box.textContent='';
+  parts.forEach((n,j)=>{if(n.nodeType===3)n.textContent.split(/(\s+)/).forEach(x=>{if(!x)return;if(/^\s+$/.test(x)){box.appendChild(document.createTextNode(' '));return}const i=document.createElement('i');i.textContent=x;unit(box,i)});
+   else if(n.nodeType===1){if(blk[j]){box.appendChild(n);if(n.children.length===0)split(n);return}const i=document.createElement('i');i.appendChild(n);unit(box,i)}});};
+ split(h);h.classList.add('split')})();
+</script>
 </body></html>

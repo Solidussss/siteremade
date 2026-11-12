@@ -78,5 +78,12 @@
       }
     }
   ],
-  "photoHero": {"hide":[".glow","#heroGL"],"motion":"gloss"}
+  "photoHero": {
+    "hide": [
+      ".glow",
+      "#heroGL"
+    ],
+    "motion": "gloss",
+    "own": true
+  }
 }

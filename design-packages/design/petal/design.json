@@ -60,5 +60,5 @@
       "skipIf": { "path": "theme.wordmarkFit", "equals": "crop" }
     }
   ],
-  "photoHero": {"motion":"focus"}
+  "photoHero": {"motion":"focus","own":true}
 }

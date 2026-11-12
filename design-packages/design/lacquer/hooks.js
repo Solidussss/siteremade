@@ -5,6 +5,7 @@
 'use strict';
 const { FILTERS } = require('../../engine/template');
 const js = FILTERS.js;
+const film = require('../../engine/film');
 
 const WINDOWS = ['[0,.15]', '[.15,.3]', '[.3,.44]', '[.44,.64]', '[.64,.8]', '[.8,1]'];
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -21,6 +22,7 @@ function derive(c) {
     tel: c.contact.phone.replace(/[^\d+]/g, ''),
     businessSaid: c.business.name.replace(/\s*&\s*/g, ' and '),
     brandSaid: c.brand.name.replace(/\s*&\s*/g, ' and '),
+    film: film.derive(c, null, [158, 47, 92]),
     stagesJs: c.stages.map((s, i) => ` {n:${js(s.n)},c:${js(s.c)},tool:${js(s.tool)},w:${WINDOWS[i]}}`).join(',\n'),
     nailJs: `{shape:${js(N.shape)},length:${LENGTH[N.length]},col:${js(N.col)},shade:${js(N.shade)},finish:${js(N.finish)},art:${js(N.art)},artCol:${js(N.artCol)},skin:${js(SKIN[N.skin])}}`,
     countJs: `{mins:${c.count.mins},coats:${c.count.coats},lasts:${js(c.count.lasts)}}`,

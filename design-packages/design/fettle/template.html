@@ -1,11 +1,13 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>{{business.name}}</title>
+<meta name="description" content="{{hero.lede|attr}}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* Layout: a home-services trade (plumber, electrician, heating engineer). One pinned cutaway of a house where a call-out
-   runs as you scroll: the call, the van, the fault traced through the pipes or wiring, the fix, the test and the sign-off.
+/* Layout: a home-services trade (plumber, electrician, heating engineer). The real job plays as you scroll (the
+   trade's own video or photos) while the customer's phone fills with the texts they'd get: the call, the van on its way,
+   the fault found, the fix, the test and the sign-off.
    Then what a customer needs: what's wrong and what it'll cost, the price list, whether we cover them, and a slot. */
 :root{
   color-scheme:light;
@@ -61,47 +63,70 @@ p{margin:0}
 @media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
 @media (max-width:560px){.nav .btn,.nav .call span{display:none}.brand{font-size:19px}}
 
-/* hero: the house */
-.hero{position:relative;height:540vh}
-.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:#DCE6EF}
-#house{position:absolute;inset:0;width:100%;height:100%;display:block}
-.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 104px);max-width:520px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
-.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(232,238,244,.95),rgba(232,238,244,.75) 55%,rgba(232,238,244,0));pointer-events:none}
-.hero h1{font-size:clamp(2.5rem,min(4.9vw,7.6vh),4.8rem)}
-.hero h1 em{font-style:normal;display:block;color:var(--accent-text)}
-.lede{color:var(--ink-2);max-width:44ch;font-size:clamp(16px,1.3vw,18px)}
+/* hero: the real job, and the customer's phone filling with texts as it goes */
+.hero{position:relative;height:560vh}
+.stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:#1a2230}
+.stage .poster,#film{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.stage .poster{object-fit:cover}
+.veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(242,244,247,.94) 0%,rgba(242,244,247,.72) 30%,rgba(242,244,247,0) 54%)}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 112px);max-width:560px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero h1{font-size:clamp(2.6rem,min(5vw,8vh),4.8rem)}
+.hero h1 em{font-style:normal;display:block;color:var(--accent)}
+.lede{color:var(--ink-2);max-width:46ch;font-size:clamp(16px,1.3vw,18px)}
 .hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
-.job{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(430px,calc(100% - 2*var(--gut)));padding:16px 18px;border-radius:14px;background:var(--sheet);box-shadow:0 22px 56px -26px rgba(20,28,40,.5),0 0 0 1px rgba(20,28,40,.06)}
-.job .row{display:flex;justify-content:space-between;gap:10px;font:500 11px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.job .clock{color:var(--accent-text);font-weight:600}
-.job h3{font-size:clamp(24px,2.3vw,30px);margin-top:10px}
-.job p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.1em}
-.steps{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;margin:14px 0 0;padding:0;list-style:none}
-.steps li{position:relative;height:4px;border-radius:2px;background:var(--paper-2);overflow:hidden}
-.steps li::after{content:"";position:absolute;inset:0;transform-origin:0 50%;transform:scaleX(var(--f,0));background:var(--accent)}
-.meter{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;border-radius:14px;background:var(--sheet);box-shadow:0 22px 56px -26px rgba(20,28,40,.5),0 0 0 1px rgba(20,28,40,.06);overflow:hidden}
-.meter div{padding:12px 16px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
-.meter div:nth-child(2n){border-right:0}
-.meter div:nth-child(n+3){border-bottom:0}
-.meter dt{font:500 10.5px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.meter dd{margin:6px 0 0;font:700 25px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
-.meter dd small{font:500 12px var(--f-mono);color:var(--muted);margin-left:4px}
-.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:500 12px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none}
-.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+.split .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.22em;margin-bottom:-.14em}
+.split .w{padding-right:.1em;margin-right:-.1em}
+.split .w>i{display:inline-block;font-style:normal;animation:wrise .9s cubic-bezier(.16,1,.3,1) both}
+@keyframes wrise{from{transform:translateY(108%)}}
+.hint{position:absolute;z-index:4;left:var(--gut);bottom:calc(132px + env(safe-area-inset-bottom,0px));font:400 11.5px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:10px;pointer-events:none}
+.hint i{display:block;width:1px;height:22px;background:linear-gradient(var(--muted),transparent);animation:cue 1.6s ease-in-out infinite}
 @keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
+.meter{position:absolute;z-index:4;left:var(--gut);bottom:calc(24px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:0;width:min(520px,calc(100% - 2*var(--gut)));background:var(--sheet);border-radius:12px;box-shadow:0 24px 60px -30px rgba(20,28,40,.5),0 0 0 1px rgba(20,28,40,.06)}
+.meter div{padding:12px 16px;border-right:1px solid var(--line);min-width:0}
+.meter div:last-child{border-right:0}
+.meter dt{font:400 10px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.meter dd{margin:6px 0 0;font:700 24px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.meter dd small{font:400 11px var(--f-mono);color:var(--muted);margin-left:3px}
+/* the handset: the business's texts land one by one, the newest at the bottom */
+.handset{position:absolute;z-index:4;right:clamp(24px,5vw,80px);top:50%;transform:translateY(-46%);width:clamp(290px,23vw,330px);height:min(640px,calc(100svh - 150px));background:#0d1117;border-radius:44px;padding:12px;box-shadow:0 0 0 1.5px #3a4352,0 50px 100px -40px rgba(0,0,0,.8),0 10px 30px -10px rgba(0,0,0,.5)}
+.handset::before{content:"";position:absolute;left:50%;top:20px;width:86px;height:24px;transform:translateX(-50%);background:#0d1117;border-radius:14px;z-index:2}
+.scr{position:relative;height:100%;border-radius:34px;overflow:hidden;background:#F2F4F7;display:flex;flex-direction:column}
+.scr .top{padding:52px 16px 12px;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.92);border-bottom:1px solid var(--line)}
+.scr .av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:#fff;font:700 13px var(--f-display)}
+.scr .who{display:grid;line-height:1.2}
+.scr .who b{font:600 14.5px var(--f-body)}
+.scr .who span{font:400 10.5px var(--f-mono);color:var(--muted);letter-spacing:.04em}
+.thread{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;padding:12px 12px 16px;overflow:hidden}
+.msg{align-self:flex-start;max-width:88%;background:#fff;color:var(--ink);border-radius:18px 18px 18px 6px;padding:9px 12px 8px;font-size:13.5px;line-height:1.4;box-shadow:0 1px 1px rgba(20,28,40,.06);display:none}
+.msg.on{display:block;animation:land .45s cubic-bezier(.2,1.3,.4,1) both}
+.flat .msg.on{animation:none}
+@keyframes land{from{opacity:0;transform:translateY(14px) scale(.96)}}
+.msg time{display:block;margin-top:3px;font:400 10px var(--f-mono);color:var(--muted)}
+.msg .x{display:flex;align-items:center;gap:8px;margin-top:7px;padding:8px 10px;border-radius:10px;background:var(--accent-soft);color:var(--accent-text);font:600 12.5px var(--f-body)}
+.msg .x.ok{background:#E2F3EA;color:var(--ok)}
+.msg .eta{display:block;flex:1;height:5px;border-radius:3px;background:rgba(29,99,216,.18);overflow:hidden}
+.msg .eta i{display:block;height:100%;background:var(--accent);transform-origin:0 50%;transform:scaleX(var(--e,0))}
+.typing{align-self:flex-start;display:none;gap:4px;padding:11px 13px;border-radius:18px;background:#fff}
+.typing.on{display:flex}
+.typing i{width:6px;height:6px;border-radius:50%;background:#A3ACBA;animation:dot 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes dot{50%{transform:translateY(-3px);opacity:.5}}
 @media (max-width:820px){
-  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 80px);max-width:none;right:var(--gut);gap:14px}
+  .veil{background:linear-gradient(180deg,rgba(242,244,247,.94) 0%,rgba(242,244,247,.7) 34%,rgba(242,244,247,0) 52%)}
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 84px);max-width:none;right:var(--gut);gap:14px}
   .hero .acts{display:none}
-  .meter{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:repeat(4,minmax(0,1fr));bottom:calc(186px + env(safe-area-inset-bottom,0px))}
-  .meter div{padding:9px 10px;border-bottom:0}
-  .meter div:nth-child(2n){border-right:1px solid var(--line)}
-  .meter div:last-child{border-right:0}
+  .hint{display:none}
+  .meter{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 70px);left:var(--gut);right:var(--gut);width:auto;opacity:0;transition:opacity .4s}
+  .meter.on{opacity:1}
+  .meter div{padding:9px 10px}
   .meter dt{font-size:9px;letter-spacing:.04em}
   .meter dd{font-size:clamp(16px,4.6vw,20px)}
   .meter dd small{display:none}
-  .job{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 16px}
-  .job p{font-size:14px;min-height:4.4em}
-  .hint{display:none}
+  .handset{left:var(--gut);right:var(--gut);top:auto;bottom:calc(12px + env(safe-area-inset-bottom,0px));transform:none;width:auto;height:46%;border-radius:26px;padding:8px}
+  .handset::before{display:none}
+  .scr{border-radius:20px}
+  .scr .top{padding:10px 12px}
+  .msg{font-size:13px}
 }
 
 /* sections */
@@ -226,9 +251,11 @@ footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut)
 </nav>
 
 <main>
-<section class="hero" id="top" aria-label="One call-out in a house cutaway, from the call to the sign-off, scroll to run it">
+<section class="hero" id="top" aria-label="One call-out, from the call to the sign-off; scroll to run it">
   <div class="stage" id="stage">
-    <canvas id="house" aria-hidden="true"></canvas>
+{{#if $.film.poster}}    <img class="poster" src="{{$.film.poster|attr}}" alt="" aria-hidden="true">
+{{/if}}    <canvas id="film" role="img" aria-label="{{brand.name|attr}} at work: the fault found, the part replaced, the job tested"></canvas>
+    <div class="veil" aria-hidden="true"></div>
     <div class="hero-copy" id="heroCopy">
       <p class="eyebrow">{{hero.eyebrow}}</p>
       <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
@@ -242,11 +269,11 @@ footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut)
       <div><dt>Parts</dt><dd id="mParts">0</dd></div>
       <div><dt>Fixed price</dt><dd id="mPrice">{{job.price}}</dd></div>
     </dl>
-    <div class="job" id="job" aria-live="polite">
-      <div class="row"><span>Job <b id="jRef">{{job.ref}}</b> · Step <b id="jNum">1</b> of 6</span><span class="clock" id="jClock">{{stages.0.clock}}</span></div>
-      <h3 id="jTitle">{{stages.0.n}}</h3>
-      <p id="jText">{{stages.0.c}}</p>
-      <ol class="steps" id="steps" aria-hidden="true"></ol>
+    <div class="handset" id="handset">
+      <div class="scr">
+        <div class="top"><span class="av" id="av" aria-hidden="true"></span><span class="who"><b>{{brand.name}}</b><span>Job {{job.ref}}</span></span></div>
+        <div class="thread" id="thread" aria-live="polite"><div class="typing" id="typing" aria-hidden="true"><i></i><i></i><i></i></div></div>
+      </div>
     </div>
   </div>
 </section>
@@ -362,278 +389,65 @@ footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut)
 (function(){
 "use strict";
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const TOUCH = matchMedia('(pointer:coarse)').matches;let gW=0,gH=0;
+const TOUCH = matchMedia('(pointer:coarse)').matches;
 const $ = s=>document.querySelector(s);
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
-const lerp=(a,b,t)=>a+(b-a)*t;
 const sm=t=>t*t*(3-2*t);
 const seg=(p,a,b)=>clamp((p-a)/(b-a));
-function rng(seed){return ()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 
-/* ============ THE CALL-OUT (what the hero shows) ============ */
+/* ============ THE CALL-OUT ============ */
 const STAGES=[
 {{$.stagesJs|raw}}
 ];
-const TRADE={{job.trade|js}};          // plumbing | heating | electrical: what runs through the walls
+const TRADE={{job.trade|js}};          // plumbing | heating | electrical
 const FAULT={{job.fault|js}};  // the tag on the fault once it's found
 const TEST={{$.testJs|raw}};
 const JOB={{$.jobJs|raw}};
-const BRAND={{$.brandUpper|js}};            // on the side of the van
-const ACCENT='{{A:#1D63D8}}';
-const COL={cold:'#3E8EDE',hot:'#E0533D',copper:'#C9763E',old:'#6E5446',live:'#8B5A2B',neutral:'#2F6FD6',earth:'#7FB23A',sheath:'#B5BCC6'};
+const BRAND={{$.brandUpper|js}};
 
-/* ============ THE HOUSE (world units: x across, y up from the ground) ============ */
-// rooms: kitchen and living downstairs, bathroom, bedroom and cupboard up
-const ROOMS=[[0.3,0,5.7,3.2,'#F4EDE2'],[6.15,0,5.55,3.2,'#EEF0E6'],[0.3,3.4,4.2,3.2,'#E4EEF3'],[4.65,3.4,4.25,3.2,'#F3E8E6'],[9.05,3.4,2.65,3.2,'#E9E5DC']];
-const WINDOWS=[[1.0,1.5,1.6,1.1],[7.1,1.3,1.9,1.3],[1.2,5.0,1.2,1.0],[5.6,4.9,2.0,1.1]];
-// what runs through the walls, by trade: lines to draw, the path traced to the fault, where the fault is
-const NET={
- plumbing:{lines:[
-   {k:'cold',p:[[-0.6,-0.7],[0.65,-0.7],[0.65,0.75],[2.3,0.75]]},{k:'cold',p:[[0.65,0.75],[0.65,3.8],[1.55,3.8]]},
-   {k:'cold',p:[[0.65,3.8],[0.65,4.65],[3.0,4.65]]},{k:'cold',p:[[3.0,4.65],[3.9,4.65],[3.9,3.8]]},
-   {k:'hot',p:[[10.3,4.85],[10.3,6.4],[0.95,6.4],[0.95,3.95],[1.7,3.95]]},{k:'hot',p:[[0.95,4.8],[2.8,4.8]]},
-   {k:'hot',p:[[10.7,4.85],[10.7,3.3],[6.4,3.3],[2.6,3.3],[2.6,1.0]]}],
-  trace:[[-0.6,-0.7],[0.65,-0.7],[0.65,3.8],[1.55,3.8],[1.75,3.55]],at:[1.75,3.52]},
- heating:{lines:[
-   {k:'hot',p:[[10.0,4.85],[10.0,3.55],[6.5,3.55],[6.5,3.85]]},{k:'cold',p:[[9.8,4.85],[9.8,3.48],[4.8,3.48],[4.8,3.85]]},
-   {k:'hot',p:[[11.0,4.85],[11.0,3.55],[11.45,3.55],[11.45,0.3],[9.7,0.3],[9.7,0.55]]},{k:'cold',p:[[11.2,4.85],[11.2,3.62],[11.55,3.62],[11.55,0.22],[7.9,0.22],[7.9,0.55]]},
-   {k:'hot',p:[[11.45,0.3],[5.7,0.3],[5.7,0.55]]},{k:'cold',p:[[7.9,0.22],[4.0,0.22],[4.0,0.55]]},
-   {k:'hot',p:[[10.4,6.1],[10.4,6.42],[3.7,6.42],[3.7,5.6]]}],
-  trace:[[10.0,4.85],[10.0,3.55],[6.5,3.55],[6.5,3.85]],at:[5.65,4.05]},
- electrical:{lines:[
-   {k:'ring',p:[[11.3,1.55],[11.3,0.42],[0.5,0.42]]},{k:'light',p:[[11.5,2.3],[11.5,3.05],[0.5,3.05]]},
-   {k:'ring',p:[[11.65,2.3],[11.65,3.62],[0.5,3.62]]},{k:'light',p:[[11.65,3.62],[11.65,6.47],[0.5,6.47]]},
-   {k:'feed',p:[[-0.6,-0.6],[11.5,-0.6],[11.5,1.55]]}],
-  trace:[[11.3,1.55],[11.3,0.42],[4.6,0.42]],at:[4.6,0.62]}
-};
-const SOCKETS={g:[1.6,4.6,7.4,9.9],f:[1.8,6.3,8.2]}, LIGHTS={g:[3.0,8.6],f:[2.2,6.8,10.3]};
+/* ============ THE FILM ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint'), nav=$('#nav'), meter=$('#meter');
+const STILL=/[?&]still\b/.test(location.search), FLAT=RM||STILL;
+if(FLAT)document.documentElement.classList.add('flat');
+{{$.film.runtime|raw}}
+const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fx:.6,fy:.45});
+let inFrame=false;try{inFrame=window.self!==window.top}catch(e){inFrame=true}
+let AUTO=inFrame&&scrollY<1&&!FLAT;
+if(AUTO)addEventListener('scroll',()=>{if(AUTO&&scrollY>=1){AUTO=false;film.poke()}},{passive:true});
 
-/* ============ GEOMETRY ============ */
-const cv=$('#house'), ctx=cv.getContext('2d');
-let W=0,H=0,DPR=1,mobile=false,S=30,OX=0,OY=0;
-const P=(x,y)=>[OX+x*S,OY-y*S];
-function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
-  // on a phone the van comes along the road in front, so the house can fill the width
-  const X0=-0.8,X1=mobile?12.6:16.4,Y0=mobile?-2.5:-1.7,Y1=9.8;
-  const ax=mobile?[W*.03,W*.97]:[W*.43,W*.98], ay=mobile?[H*.12,H*.66]:[H*.11,H*.78];
-  S=Math.min((ax[1]-ax[0])/(X1-X0),(ay[1]-ay[0])/(Y1-Y0));
-  OX=(ax[0]+ax[1])/2-S*(X0+X1)/2;OY=(ay[0]+ay[1])/2+S*(Y0+Y1)/2;last=-1;}
-const N=NET[TRADE]||NET.plumbing;
-function lens(p){const L=[0];for(let i=1;i<p.length;i++)L.push(L[i-1]+Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]));return L;}
-function along(p,L,d){d=clamp(d,0,L[L.length-1]);let i=1;while(i<p.length-1&&L[i]<d)i++;const t=(d-L[i-1])/((L[i]-L[i-1])||1);return[lerp(p[i-1][0],p[i][0],t),lerp(p[i-1][1],p[i][1],t)];}
-function poly(p,upto){const L=lens(p);const end=upto==null?L[L.length-1]:upto;ctx.beginPath();let q=P(...p[0]);ctx.moveTo(q[0],q[1]);for(let i=1;i<p.length;i++){if(L[i]>=end){const r=P(...along(p,L,end));ctx.lineTo(r[0],r[1]);break;}q=P(...p[i]);ctx.lineTo(q[0],q[1]);}}
-function rect(x,y,w,h,fill){const a=P(x,y+h);ctx.fillStyle=fill;ctx.fillRect(a[0],a[1],w*S,h*S);}
-
-/* ============ DRAWING ============ */
-function shadeHex(h,k){const n=parseInt(h.slice(1),16);const f=v=>Math.round(k>0?v+(255-v)*k:v*(1+k));return`rgb(${f(n>>16&255)},${f(n>>8&255)},${f(n&255)})`;}
-function rr(x,y,w,h,r){ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x,y,w,h,Math.max(0,Math.min(r,w/2,h/2)));else ctx.rect(x,y,w,h);}
-// a solid piece, lit from the upper left, with a soft shadow on the wall behind it
-function block(x,y,w,h,col,r,lift){const a=P(x,y+h);ctx.save();if(lift!==0){ctx.shadowColor='rgba(40,30,20,.22)';ctx.shadowBlur=S*.18*DPR;ctx.shadowOffsetX=S*.04*DPR;ctx.shadowOffsetY=S*.06*DPR;}ctx.fillStyle=col;rr(a[0],a[1],w*S,h*S,(r||0)*S);ctx.fill();ctx.restore();
-  const g=ctx.createLinearGradient(a[0],a[1],a[0]+w*S*.3,a[1]+h*S);g.addColorStop(0,'rgba(255,255,255,.2)');g.addColorStop(1,'rgba(0,0,0,.1)');ctx.fillStyle=g;rr(a[0],a[1],w*S,h*S,(r||0)*S);ctx.fill();}
-function backdrop(p){const dusk=sm(seg(p,.86,1));const g=ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,`rgb(${Math.round(lerp(120,214,dusk*.6))},${Math.round(lerp(170,170,dusk))},${Math.round(lerp(218,190,dusk))})`);g.addColorStop(.6,`rgb(${Math.round(lerp(198,240,dusk))},${Math.round(lerp(222,206,dusk))},${Math.round(lerp(240,196,dusk))})`);g.addColorStop(1,'#EEF2F4');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  // a few soft clouds drifting high up
-  const r0=rng(12);for(let i=0;i<6;i++){const cx=(r0()*1.2-.1)*W, cy=H*(.06+r0()*.22), cw=W*(.08+r0()*.1);for(let j=0;j<5;j++){const gx=cx+(j-2)*cw*.35, gy=cy+Math.sin(j*1.7)*cw*.06, gr=cw*(.3+.12*Math.sin(j*2.1+i));const cg=ctx.createRadialGradient(gx,gy,0,gx,gy,gr);cg.addColorStop(0,`rgba(255,255,255,${.5*(1-dusk*.5)})`);cg.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=cg;ctx.beginPath();ctx.arc(gx,gy,gr,0,7);ctx.fill();}}
-  // the ground in section: turf, topsoil, then clay and stones
-  const top=P(0,0)[1], deep=P(0,-1.9)[1];
-  const sg=ctx.createLinearGradient(0,top,0,deep+S*1.2);sg.addColorStop(0,'#6E5236');sg.addColorStop(.25,'#8A6B4B');sg.addColorStop(.6,'#A88A68');sg.addColorStop(1,'rgba(232,238,243,0)');ctx.fillStyle='#E8EEF3';ctx.fillRect(0,top,W,H-top);ctx.fillStyle=sg;ctx.fillRect(0,top,W,deep+S*1.2-top);
-  const r=rng(3);for(let i=0;i<420;i++){const x=r()*W, y=top+S*.2+r()*(deep-top), s=r()*S*.09+1;ctx.fillStyle=r()<.5?'rgba(60,40,25,.25)':'rgba(220,200,175,.25)';ctx.beginPath();ctx.ellipse(x,y,s,s*.7,r()*3,0,7);ctx.fill();}
-  ctx.strokeStyle='rgba(70,50,30,.35)';ctx.lineWidth=1;for(let i=0;i<18;i++){const x=r()*W,y=top+S*.15;ctx.beginPath();ctx.moveTo(x,y);ctx.quadraticCurveTo(x+(r()-.5)*S*.6,y+S*.3,x+(r()-.5)*S*.8,y+S*(.4+r()*.5));ctx.stroke();}
-  if(mobile){const r0=P(0,-1.15),r1=P(0,-2.35);const tg=ctx.createLinearGradient(0,r0[1],0,r1[1]);tg.addColorStop(0,'#5E6168');tg.addColorStop(1,'#46494F');ctx.fillStyle=tg;ctx.fillRect(0,r0[1],W,r1[1]-r0[1]);ctx.fillStyle='rgba(255,255,255,.06)';for(let i=0;i<300;i++)ctx.fillRect(r()*W,r0[1]+r()*(r1[1]-r0[1]),1.5,1.5);
-    ctx.fillStyle='#C3C6CB';ctx.fillRect(0,r0[1]-S*.12,W,S*.12);ctx.strokeStyle='rgba(255,255,255,.75)';ctx.lineWidth=2;ctx.setLineDash([S*.6,S*.5]);ctx.beginPath();ctx.moveTo(0,(r0[1]+r1[1])/2);ctx.lineTo(W,(r0[1]+r1[1])/2);ctx.stroke();ctx.setLineDash([]);}
-  else{const d0=P(12,0),d1=P(16.6,-0.18);ctx.fillStyle='#6E6C69';ctx.fillRect(d0[0],d0[1],d1[0]-d0[0],d1[1]-d0[1]+2);ctx.fillStyle='rgba(255,255,255,.08)';for(let i=0;i<120;i++)ctx.fillRect(d0[0]+r()*(d1[0]-d0[0]),d0[1]+r()*(d1[1]-d0[1]),1.5,1.5);}
-  // the turf, with blades along its top
-  const g0=P(-3,0);ctx.fillStyle='#5E8F48';ctx.fillRect(0,g0[1]-S*.14,P(0,0)[0],S*.16);ctx.strokeStyle='#4E7E3A';ctx.lineWidth=1;for(let x=0;x<P(0,0)[0];x+=3){ctx.beginPath();ctx.moveTo(x,g0[1]-S*.1);ctx.lineTo(x+(r()-.5)*3,g0[1]-S*(.18+r()*.12));ctx.stroke();}}
-// brick in the cut walls; timber and screed in the floors
-function brick(x,y,w,h){const a=P(x,y+h), W2=w*S, H2=h*S;ctx.save();ctx.beginPath();ctx.rect(a[0],a[1],W2,H2);ctx.clip();ctx.fillStyle='#C9BFB3';ctx.fillRect(a[0],a[1],W2,H2);
-  const bh=S*.075, bw=S*.22, r=rng(Math.floor(x*31+y*7));for(let j=0,yy=a[1];yy<a[1]+H2;j++,yy+=bh){for(let xx=a[0]-(j%2?bw/2:0);xx<a[0]+W2;xx+=bw){ctx.fillStyle=shadeHex('#A6553A',(r()-.5)*.25);ctx.fillRect(xx+.6,yy+.6,bw-1.2,bh-1.2);}}
-  const g=ctx.createLinearGradient(a[0],0,a[0]+W2,0);g.addColorStop(0,'rgba(0,0,0,.15)');g.addColorStop(.5,'rgba(255,255,255,.06)');g.addColorStop(1,'rgba(0,0,0,.15)');ctx.fillStyle=g;ctx.fillRect(a[0],a[1],W2,H2);ctx.restore();}
-function slab(x,y,w,h){const a=P(x,y+h);ctx.fillStyle='#8E8780';ctx.fillRect(a[0],a[1],w*S,h*S);ctx.fillStyle='#B48A5A';ctx.fillRect(a[0],a[1],w*S,h*S*.32);ctx.fillStyle='rgba(60,40,25,.35)';for(let xx=a[0]+S*.2;xx<a[0]+w*S;xx+=S*.4)ctx.fillRect(xx,a[1]+h*S*.32,S*.05,h*S*.68);ctx.fillStyle='rgba(255,255,255,.18)';ctx.fillRect(a[0],a[1],w*S,1);}
-function shell(){
-  // the rooms: painted walls, light from the windows, a skirting board along each floor
-  ROOMS.forEach(([x,y,w,h,c],i)=>{rect(x,y,w,h,c);const a=P(x,y+h);const g=ctx.createLinearGradient(a[0],a[1],a[0],a[1]+h*S);g.addColorStop(0,'rgba(0,0,0,.06)');g.addColorStop(.25,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.05)');ctx.fillStyle=g;ctx.fillRect(a[0],a[1],w*S,h*S);
-    {const r=rng(i*31+5);for(let k=0;k<w*h*60;k++){ctx.fillStyle=r()<.5?'rgba(0,0,0,.035)':'rgba(255,255,255,.08)';ctx.fillRect(a[0]+r()*w*S,a[1]+r()*h*S,1,1);}
-     [[a[0],1],[a[0]+w*S,-1]].forEach(([ex,d])=>{const sg=ctx.createLinearGradient(ex,0,ex+d*S*.6,0);sg.addColorStop(0,'rgba(40,30,20,.12)');sg.addColorStop(1,'rgba(40,30,20,0)');ctx.fillStyle=sg;ctx.fillRect(d>0?ex:ex-S*.6,a[1],S*.6,h*S);});}
-    if(i===1||i===3){ctx.fillStyle='rgba(0,0,0,.035)';for(let xx=a[0]+S*.25;xx<a[0]+w*S;xx+=S*.5)ctx.fillRect(xx,a[1],S*.25,h*S);}
-    const sk=P(x,y+.14);ctx.fillStyle='#FBFBF9';ctx.fillRect(sk[0],sk[1],w*S,S*.14);ctx.fillStyle='rgba(0,0,0,.12)';ctx.fillRect(sk[0],sk[1],w*S,1);});
-  WINDOWS.forEach(([x,y,w,h])=>{const a=P(x,y+h);
-    // the light falling in, then the frame and the glass (with the sky in it)
-    const lg=ctx.createLinearGradient(a[0],a[1],a[0]+w*S*1.6,a[1]+h*S*2.2);lg.addColorStop(0,'rgba(255,248,225,.35)');lg.addColorStop(1,'rgba(255,248,225,0)');ctx.fillStyle=lg;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(a[0]+w*S,a[1]);ctx.lineTo(a[0]+w*S*1.9,a[1]+h*S*2.4);ctx.lineTo(a[0]+w*S*.6,a[1]+h*S*2.4);ctx.closePath();ctx.fill();
-    block(x-.1,y-.12,w+.2,h+.2,'#F7F8FA',.02,1);const g=ctx.createLinearGradient(a[0],a[1],a[0]+w*S,a[1]+h*S);g.addColorStop(0,'#9CC3E2');g.addColorStop(.55,'#D9EAF6');g.addColorStop(1,'#B9D3E6');ctx.fillStyle=g;ctx.fillRect(a[0],a[1],w*S,h*S);
-    ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=S*.12;ctx.beginPath();ctx.moveTo(a[0]+w*S*.15,a[1]+h*S*.9);ctx.lineTo(a[0]+w*S*.45,a[1]+h*S*.1);ctx.stroke();
-    ctx.strokeStyle='#F7F8FA';ctx.lineWidth=Math.max(1.5,S*.07);ctx.beginPath();ctx.moveTo(a[0]+w*S/2,a[1]);ctx.lineTo(a[0]+w*S/2,a[1]+h*S);ctx.stroke();ctx.fillStyle='#E6E9ED';ctx.fillRect(a[0]-S*.15,a[1]+h*S,w*S+S*.3,S*.08);});
-  // the cut walls in brick, the floors in timber over screed
-  brick(0,0,.3,6.8);brick(11.7,0,.3,6.8);slab(0,3.2,12,.2);slab(0,6.6,12,.2);
-  const plaster=(x,y,w,h)=>{const a=P(x,y+h);const g=ctx.createLinearGradient(a[0],0,a[0]+w*S,0);g.addColorStop(0,'#BFB8AE');g.addColorStop(.5,'#E2DCD2');g.addColorStop(1,'#BFB8AE');ctx.fillStyle=g;ctx.fillRect(a[0],a[1],w*S,h*S);};
-  plaster(6,1.0,.15,2.2);plaster(4.5,3.4,.15,3.2);plaster(8.9,3.4,.15,3.2);
-  // the roof in section: the loft between the rafters, then battens and tiles along the slope
-  const a=P(-.5,6.8),b=P(6,9.5),c=P(12.5,6.8);const lg=ctx.createLinearGradient(0,b[1],0,a[1]);lg.addColorStop(0,'#D9CDB8');lg.addColorStop(1,'#EAE2D3');ctx.fillStyle=lg;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.lineTo(c[0],c[1]);ctx.closePath();ctx.fill();
-  for(let i=1;i<8;i++){const t=i/8;[P(lerp(-.2,6,t),lerp(6.9,9.2,t)),P(lerp(12.2,6,t),lerp(6.9,9.2,t))].forEach(q=>{const w2=Math.max(2,S*.08), bot=P(0,6.85)[1];const tg=ctx.createLinearGradient(q[0]-w2/2,0,q[0]+w2/2,0);tg.addColorStop(0,'#9C7448');tg.addColorStop(.5,'#C9A272');tg.addColorStop(1,'#8A6238');ctx.fillStyle=tg;ctx.fillRect(q[0]-w2/2,q[1],w2,bot-q[1]);});}
-  {ctx.save();ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.lineTo(c[0],c[1]);ctx.closePath();ctx.clip();const i0=P(-.5,7.15), i1=P(12.5,6.8);const ig=ctx.createLinearGradient(0,i0[1],0,i1[1]);ig.addColorStop(0,'#F2D27A');ig.addColorStop(1,'#D9AE4E');ctx.fillStyle=ig;ctx.fillRect(i0[0],i0[1],i1[0]-i0[0],i1[1]-i0[1]);
-   const r=rng(77);ctx.lineCap='round';for(let k=0;k<700;k++){const x=i0[0]+r()*(i1[0]-i0[0]), y=i0[1]+r()*(i1[1]-i0[1]), L=S*(.06+r()*.12);ctx.strokeStyle=r()<.5?'rgba(170,120,30,.35)':'rgba(255,240,190,.45)';ctx.lineWidth=Math.max(.6,S*.012);ctx.beginPath();ctx.moveTo(x,y);ctx.quadraticCurveTo(x+L*.5,y+(r()-.5)*L*.6,x+L,y+(r()-.5)*L*.3);ctx.stroke();}
-   ctx.fillStyle='rgba(120,80,20,.2)';ctx.fillRect(i0[0],i0[1],i1[0]-i0[0],2);ctx.restore();}
-  ctx.lineJoin='round';ctx.strokeStyle='#8A6438';ctx.lineWidth=S*.2;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.lineTo(c[0],c[1]);ctx.stroke();
-  const tiles=(p0,p1)=>{const L=Math.hypot(p1[0]-p0[0],p1[1]-p0[1]), n=Math.floor(L/(S*.32)), ang=Math.atan2(p1[1]-p0[1],p1[0]-p0[0]);ctx.save();ctx.translate(p0[0],p0[1]);ctx.rotate(ang);for(let i=0;i<n;i++){const x=i*L/n;const g=ctx.createLinearGradient(0,-S*.24,0,-S*.08);g.addColorStop(0,'#7A3B2A');g.addColorStop(1,'#4E2419');ctx.fillStyle=g;rr(x,-S*.26,L/n+1,S*.17,S*.04);ctx.fill();ctx.fillStyle='rgba(255,255,255,.1)';ctx.fillRect(x,-S*.26,L/n,1.2);}ctx.restore();};
-  tiles(P(-.6,6.75),P(6,9.55));tiles(P(6,9.55),P(12.6,6.75));
-  // the furniture
-  block(.4,0,3.4,.9,'#C9BBA6',.02);{const a2=P(.4,.9);ctx.fillStyle='rgba(0,0,0,.18)';for(let i=1;i<4;i++)ctx.fillRect(a2[0]+i*S*.85,a2[1],1,S*.9);ctx.fillStyle='#8B7B67';for(let i=0;i<4;i++)ctx.fillRect(a2[0]+i*S*.85+S*.62,a2[1]+S*.15,S*.05,S*.22);}
-  block(.4,.9,3.4,.12,'#E8E2D8',0);{const s1=P(1.9,.98);const g=ctx.createLinearGradient(s1[0],0,s1[0]+S*.9,0);g.addColorStop(0,'#C6CED6');g.addColorStop(.5,'#EEF2F5');g.addColorStop(1,'#B9C2CB');ctx.fillStyle=g;ctx.fillRect(s1[0],s1[1],S*.9,S*.08);ctx.strokeStyle='#C9D0D7';ctx.lineWidth=S*.05;ctx.lineCap='round';ctx.beginPath();const tp=P(2.35,1.02);ctx.moveTo(tp[0],tp[1]);ctx.lineTo(tp[0],tp[1]-S*.3);ctx.lineTo(tp[0]+S*.18,tp[1]-S*.3);ctx.stroke();}
-  block(6.7,0,2.8,.75,'#8DA08A',.06);block(6.7,.75,.35,.45,'#7E917B',.05);block(9.15,.75,.35,.45,'#7E917B',.05);[0,1,2].forEach(i=>{const q=P(7.1+i*.8,.78);const g=ctx.createRadialGradient(q[0]+S*.3,q[1]-S*.15,0,q[0]+S*.35,q[1],S*.5);g.addColorStop(0,'#A9BBA5');g.addColorStop(1,'#869983');ctx.fillStyle=g;rr(q[0],q[1]-S*.3,S*.72,S*.32,S*.08);ctx.fill();});
-  for(let i=0;i<9;i++){const s0=P(10+i*.18,i*.36);ctx.fillStyle='#A47A4F';ctx.fillRect(s0[0],s0[1]-S*.36,S*.2,S*.36);ctx.fillStyle='#C99C68';ctx.fillRect(s0[0],s0[1]-S*.36,S*.22,S*.06);ctx.fillStyle='rgba(0,0,0,.12)';ctx.fillRect(s0[0]+S*.18,s0[1]-S*.36,S*.02,S*.36);}
-  { const h0=P(10,0),h1=P(11.62,3.24);ctx.strokeStyle='#7A5634';ctx.lineWidth=Math.max(2,S*.06);ctx.beginPath();ctx.moveTo(h0[0],h0[1]-S*.9);ctx.lineTo(h1[0],h1[1]-S*.9);ctx.stroke(); }
-  block(.4,3.4,2.2,.7,'#FBFBFA',.12);{const a2=P(.55,4.05);const g=ctx.createLinearGradient(0,a2[1],0,a2[1]+S*.5);g.addColorStop(0,'#D7E4EC');g.addColorStop(1,'#F3F8FA');ctx.fillStyle=g;rr(a2[0],a2[1],S*1.9,S*.45,S*.12);ctx.fill();}
-  block(2.9,3.4,.25,.95,'#ECEFF1',.03);block(2.7,4.35,.7,.18,'#FBFBFA',.06);block(3.6,3.4,.6,.45,'#FBFBFA',.12);block(3.75,3.85,.45,.55,'#F1F3F5',.06);
-  block(6.9,3.4,2.0,.55,'#D9CFC0',.06);block(6.9,3.95,.25,.6,'#9C7E5C',.04);{const a2=P(7.2,4.13);const g=ctx.createLinearGradient(0,a2[1],0,a2[1]+S*.18);g.addColorStop(0,'#FFFFFF');g.addColorStop(1,'#E2E6EA');ctx.fillStyle=g;rr(a2[0],a2[1],S*1.6,S*.18,S*.08);ctx.fill();}
-  // the boiler, the consumer unit
-  block(9.75,4.85,1.5,1.3,'#F7F8FA',.08);block(9.95,5.6,.6,.25,'#26313F',.03,0);ctx.fillStyle='#5BD18A';const dd=P(10.05,5.78);ctx.fillRect(dd[0],dd[1],S*.12,S*.08);
-  block(11.15,1.55,.65,.78,'#DDE2E8',.04);ctx.fillStyle='#9AA3AF';for(let i=0;i<4;i++){const q=P(11.22+i*.14,2.05);ctx.fillRect(q[0],q[1],S*.08,S*.2);}
-}
-function lineStyle(k){if(TRADE==='electrical'){return{w:Math.max(1.6,S*.09),c:k==='light'?'#E3B52E':k==='feed'?'#58616E':COL.sheath};}return{w:Math.max(2.4,S*.13),c:k==='hot'?COL.hot:COL.cold};}
-// pipes are copper (lagged in the colour of what they carry); cables are sheathed: both drawn as round, lit tubes
-function network(f){N.lines.forEach(l=>{const st=lineStyle(l.k);ctx.lineCap='round';ctx.lineJoin='round';
-    ctx.save();ctx.shadowColor='rgba(20,28,40,.35)';ctx.shadowBlur=S*.12*DPR;ctx.shadowOffsetX=S*.03*DPR;ctx.shadowOffsetY=S*.05*DPR;ctx.strokeStyle=shadeHex(st.c,-.35);ctx.lineWidth=st.w+1.5;poly(l.p);ctx.stroke();ctx.restore();
-    ctx.strokeStyle=st.c;ctx.lineWidth=st.w;poly(l.p);ctx.stroke();ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=Math.max(.8,st.w*.28);ctx.save();ctx.translate(-st.w*.18,-st.w*.18);poly(l.p);ctx.stroke();ctx.restore();
-    // the fittings at each bend
-    if(TRADE!=='electrical')l.p.slice(1,-1).forEach(pt=>{const q=P(...pt);const g=ctx.createRadialGradient(q[0]-st.w*.2,q[1]-st.w*.2,0,q[0],q[1],st.w*.85);g.addColorStop(0,'#F2C79A');g.addColorStop(1,'#9C5A2E');ctx.fillStyle=g;ctx.beginPath();ctx.arc(q[0],q[1],st.w*.8,0,7);ctx.fill();});});
-  // fixtures on the network
-  if(TRADE==='electrical'){
-    SOCKETS.g.forEach(x=>socket(x,.45,f));SOCKETS.f.forEach(x=>socket(x,3.65,f));
-    const on=sm(seg(f[4],.1,.6));LIGHTS.g.forEach(x=>pendant(x,3.05,on));LIGHTS.f.forEach(x=>pendant(x,6.47,on));
-    // the tripped breaker turns green once fixed
-    const q=P(11.22+3*.14,2.05);ctx.fillStyle=f[3]>.7?'#2EAE68':'#D64532';ctx.fillRect(q[0],q[1],S*.08,S*.2);}
-  else{
-    if(TRADE==='heating'){[[4.85,3.7,1.6,.7],[3.9,.55,1.6,.6],[7.85,.55,1.8,.6],[3.5,5.0,.4,.9]].forEach(([x,y,w,h],i)=>radiator(x,y,w,h,i===0?heatFault(f):1));}
-    // the stopcock under the sink: turned off while we work
-    const off=f[2]>.15&&f[4]<.15;const q=P(.65,.3);const g=ctx.createRadialGradient(q[0]-2,q[1]-2,0,q[0],q[1],Math.max(3,S*.16));g.addColorStop(0,off?'#FF8A7A':'#7FE0A8');g.addColorStop(1,off?'#B8322B':'#1F8A5B');ctx.fillStyle=g;ctx.beginPath();ctx.arc(q[0],q[1],Math.max(3,S*.15),0,7);ctx.fill();}}
-function socket(x,y,f){const bad=TRADE==='electrical'&&Math.abs(x-N.at[0])<.01;const fixed=sm(seg(f[3],.4,.8));rect(x-.2,y,.4,.36,bad&&fixed<1?`rgb(${Math.round(lerp(60,248,fixed))},${Math.round(lerp(50,249,fixed))},${Math.round(lerp(45,250,fixed))})`:'#F8F9FA');
-  ctx.fillStyle='#8792A0';const a=P(x-.08,y+.24),b=P(x+.05,y+.24);ctx.fillRect(a[0],a[1],S*.04,S*.1);ctx.fillRect(b[0],b[1],S*.04,S*.1);}
-function pendant(x,y,on){const a=P(x,y),b=P(x,y-.45);ctx.strokeStyle='#58616E';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
-  if(on>0){const g=ctx.createRadialGradient(b[0],b[1],0,b[0],b[1],S*1.6);g.addColorStop(0,`rgba(255,214,120,${.5*on})`);g.addColorStop(1,'rgba(255,214,120,0)');ctx.fillStyle=g;ctx.fillRect(b[0]-S*1.6,b[1]-S*1.6,S*3.2,S*3.2);}
-  ctx.fillStyle=on>.5?'#FFD27A':'#C9CED6';ctx.beginPath();ctx.arc(b[0],b[1],S*.13,0,7);ctx.fill();}
-function heatFault(f){return sm(seg(f[4],.05,.6));}
-function radiator(x,y,w,h,heat){const a=P(x,y+h);const g=ctx.createLinearGradient(0,a[1],0,a[1]+h*S);
-  g.addColorStop(0,`rgb(${Math.round(lerp(176,236,heat))},${Math.round(lerp(196,120,heat))},${Math.round(lerp(220,98,heat))})`);g.addColorStop(1,`rgb(${Math.round(lerp(196,214,heat))},${Math.round(lerp(210,170,heat))},${Math.round(lerp(226,160,heat))})`);
-  ctx.fillStyle=g;ctx.fillRect(a[0],a[1],w*S,h*S);ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=1;for(let i=1;i<w/.16;i++){ctx.beginPath();ctx.moveTo(a[0]+i*.16*S,a[1]+2);ctx.lineTo(a[0]+i*.16*S,a[1]+h*S-2);ctx.stroke();}}
-
-/* the fault, and what it does before we come */
-const drips=[...Array(14)].map((_,i)=>{const r=rng(70+i);return{o:r(),x:(r()-.5)*.25};});
-function fault(p,f,time){const fixed=sm(seg(f[3],.3,.8));const [fx,fy]=N.at;const live=1-fixed;
-  if(TRADE==='plumbing'){
-    // the stain on the kitchen ceiling spreads, then dries out
-    const st=(.6+.4*sm(seg(f[0],0,1)))*(1-.8*sm(seg(f[5],0,1)));const c=P(fx,3.2);ctx.fillStyle=`rgba(140,110,70,${.35*st})`;ctx.beginPath();ctx.ellipse(c[0],c[1]+S*.05,S*(.8+.4*st),S*.14,0,0,7);ctx.fill();
-    // the old trap, dark; the new one, copper
-    const t=P(fx-.25,fy+.2);ctx.fillStyle=fixed>.5?COL.copper:COL.old;ctx.fillRect(t[0],t[1],S*.5,S*.2);
-    if(live>0&&!RM)drips.forEach(d=>{const k=(time*.7+d.o)%1;const q=P(fx+d.x,lerp(3.2,.95,k*k));ctx.fillStyle=`rgba(62,142,222,${.85*live})`;ctx.beginPath();ctx.ellipse(q[0],q[1],S*.05,S*.08,0,0,7);ctx.fill();});
-    if(live>0){const pd=P(fx,.92);ctx.fillStyle=`rgba(62,142,222,${.4*live})`;ctx.beginPath();ctx.ellipse(pd[0],pd[1],S*.5,S*.06,0,0,7);ctx.fill();}}
-  else if(TRADE==='heating'){
-    if(live>0){const q=P(fx,fy+.9);ctx.strokeStyle=`rgba(62,142,222,${.9*live})`;ctx.lineWidth=2;for(let i=0;i<3;i++){const a=i*Math.PI/3;ctx.beginPath();ctx.moveTo(q[0]-Math.cos(a)*S*.28,q[1]-Math.sin(a)*S*.28);ctx.lineTo(q[0]+Math.cos(a)*S*.28,q[1]+Math.sin(a)*S*.28);ctx.stroke();}}}
-  else{
-    if(live>0){const q=P(fx,fy-.05);ctx.fillStyle=`rgba(30,22,18,${.45*live})`;ctx.beginPath();ctx.ellipse(q[0],q[1]-S*.2,S*.32,S*.28,0,0,7);ctx.fill();
-      if(!RM&&Math.sin(time*13)>.3)for(let i=0;i<5;i++){const r=rng(Math.floor(time*12)+i);ctx.strokeStyle='#FFC94A';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(q[0]+(r()-.5)*S*.9,q[1]-r()*S*.7);ctx.stroke();}}}}
-
-/* the trace: a glow running from the source to the fault, then a ring and a tag on it */
-function trace(f,time){const t=sm(seg(f[2],.1,.7));if(t<=0||f[4]>.4)return;const a=1-sm(seg(f[4],0,.4));const L=lens(N.trace);
-  ctx.save();ctx.globalAlpha=a;ctx.strokeStyle=ACCENT;ctx.lineWidth=Math.max(3,S*.16);ctx.lineCap='round';ctx.shadowColor=ACCENT;ctx.shadowBlur=12;poly(N.trace,L[L.length-1]*t);ctx.stroke();ctx.restore();
-  const head=P(...along(N.trace,L,L[L.length-1]*t));ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(head[0],head[1],Math.max(3,S*.14),0,7);ctx.fill();
-  if(t>=1){const q=P(...N.at);const k=sm(seg(f[2],.7,.85));const pulse=RM?0:Math.sin(time*4)*.06;ctx.strokeStyle=ACCENT;ctx.lineWidth=2.5;ctx.globalAlpha=a;ctx.beginPath();ctx.arc(q[0],q[1],S*(.55+pulse)*(2-k),0,7);ctx.stroke();
-    ctx.font=`600 ${mobile?11:13}px Figtree,sans-serif`;const tw=ctx.measureText(FAULT).width+18;const lx=Math.min(W-tw-8,q[0]+S*.7), ly=q[1]-S*1.1;ctx.fillStyle='rgba(20,28,40,.9)';ctx.beginPath();ctx.roundRect?ctx.roundRect(lx,ly-13,tw,26,6):ctx.rect(lx,ly-13,tw,26);ctx.fill();ctx.fillStyle='#fff';ctx.textBaseline='middle';ctx.fillText(FAULT,lx+9,ly);ctx.textBaseline='alphabetic';ctx.globalAlpha=1;}}
-/* the fix: a spanner turning at the fault */
-function spanner(f,time){const k=seg(f[3],.05,.8);if(k<=0||k>=1)return;const q=P(...N.at);ctx.save();ctx.translate(q[0]+S*.6,q[1]-S*.6);ctx.rotate(RM?.6:Math.sin(time*5)*.6);ctx.fillStyle='#58616E';ctx.fillRect(-S*.07,-S*.05,S*.9,S*.14);ctx.beginPath();ctx.arc(0,0,S*.2,0,7);ctx.fill();ctx.fillStyle='#E9EEF3';ctx.beginPath();ctx.arc(-S*.05,0,S*.09,0,7);ctx.fill();ctx.restore();}
-/* the close-up: a lens on the fault while the old part comes out and the new one goes in */
-function closeup(f,time){const k=sm(seg(f[3],0,.2))*(1-sm(seg(f[4],0,.25)));if(k<=0)return;const sw=sm(seg(f[3],.2,.8));const c=P(...SPOT().lens), r=S*(mobile?1.8:2.1)*k, q=P(...N.at);
-  ctx.save();ctx.globalAlpha=k;ctx.strokeStyle='rgba(29,99,216,.5)';ctx.setLineDash([4,4]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(c[0],c[1]);ctx.stroke();ctx.setLineDash([]);
-  ctx.shadowColor='rgba(20,28,40,.35)';ctx.shadowBlur=18;ctx.fillStyle='#F7F9FB';ctx.beginPath();ctx.arc(c[0],c[1],r,0,7);ctx.fill();ctx.shadowColor='transparent';
-  ctx.save();ctx.beginPath();ctx.arc(c[0],c[1],r*.94,0,7);ctx.clip();
-  const u=r*.6, out=sw, inn=sm(seg(sw,.35,1));
-  if(TRADE==='electrical'){ctx.fillStyle='#E9E4DA';ctx.fillRect(c[0]-r,c[1]-r,2*r,2*r);
-    // the wires in the box: brown, blue, green-yellow
-    [[COL.live,-.45],[COL.neutral,0],[COL.earth,.45]].forEach(([col,dx])=>{ctx.strokeStyle=col;ctx.lineWidth=u*.14;ctx.beginPath();ctx.moveTo(c[0]+dx*u,c[1]+r);ctx.quadraticCurveTo(c[0]+dx*u*1.4,c[1]+u*.8,c[0]+dx*u*.8,c[1]+u*.15);ctx.stroke();});
-    const face=(x,y,col,burn)=>{ctx.fillStyle=col;ctx.beginPath();ctx.roundRect?ctx.roundRect(x-u*1.1,y-u*1.1,u*2.2,u*2.2,u*.18):ctx.rect(x-u*1.1,y-u*1.1,u*2.2,u*2.2);ctx.fill();ctx.fillStyle='#7E8896';[[-.35,-.25],[.35,-.25],[0,.35]].forEach(([dx,dy])=>ctx.fillRect(x+dx*u-u*.07,y+dy*u-u*.17,u*.14,u*.34));
-      if(burn){const g=ctx.createRadialGradient(x+u*.35,y-u*.2,0,x+u*.35,y-u*.2,u*.9);g.addColorStop(0,'rgba(20,14,10,.85)');g.addColorStop(1,'rgba(20,14,10,0)');ctx.fillStyle=g;ctx.fillRect(x-u*1.1,y-u*1.1,u*2.2,u*2.2);}};
-    if(out<1)face(c[0]-out*r*2.2,c[1],'#EDE7DC',true);if(inn>0)face(c[0]+(1-inn)*r*2.2,c[1],'#FFFFFF',false);}
-  else if(TRADE==='heating'){ctx.fillStyle='#F1ECE4';ctx.fillRect(c[0]-r,c[1]-r,2*r,2*r);
-    // the radiator's edge and the pipe into the valve
-    ctx.fillStyle='#D8DEE6';ctx.fillRect(c[0]+u*.5,c[1]-r,r,2*r);ctx.strokeStyle='rgba(255,255,255,.7)';for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(c[0]+u*.7+i*u*.35,c[1]-r);ctx.lineTo(c[0]+u*.7+i*u*.35,c[1]+r);ctx.stroke();}
-    ctx.fillStyle='#C9CED6';ctx.fillRect(c[0]-u*.2,c[1]+u*.35,u*.7,u*.3);ctx.fillRect(c[0]-u*.2,c[1]+u*.35,u*.25,r);
-    const head=(y,col,rust)=>{ctx.fillStyle=col;ctx.beginPath();ctx.roundRect?ctx.roundRect(c[0]-u*.55,y-u*1.1,u*.7,u*1.1,u*.15):ctx.rect(c[0]-u*.55,y-u*1.1,u*.7,u*1.1);ctx.fill();ctx.strokeStyle=rust?'#8A6A50':'#C9CED6';ctx.lineWidth=1;for(let i=1;i<5;i++){ctx.beginPath();ctx.moveTo(c[0]-u*.5,y-u*1.1+i*u*.2);ctx.lineTo(c[0]+u*.1,y-u*1.1+i*u*.2);ctx.stroke();}};
-    if(out<1)head(c[1]+u*.35-out*r*2,'#A9A49C',true);if(inn>0)head(c[1]+u*.35-(1-inn)*r*2,'#FFFFFF',false);}
-  else{ctx.fillStyle='#EAF0F5';ctx.fillRect(c[0]-r,c[1]-r,2*r,2*r);
-    // the waste pipe across, the trap in the middle
-    const pg=ctx.createLinearGradient(0,c[1]-u*.3,0,c[1]+u*.3);pg.addColorStop(0,'#C9CFD6');pg.addColorStop(.3,'#FFFFFF');pg.addColorStop(.7,'#E3E7EB');pg.addColorStop(1,'#A9B1BA');ctx.fillStyle=pg;ctx.fillRect(c[0]-r,c[1]-u*.3,2*r,u*.6);
-    const trap=(y,col,crack)=>{const tg=ctx.createLinearGradient(c[0]-u*.6,0,c[0]+u*.6,0);tg.addColorStop(0,col===COL.copper?'#7A3E1A':'#4A3A30');tg.addColorStop(.35,col===COL.copper?'#F0B07A':'#8E7A6A');tg.addColorStop(.6,col);tg.addColorStop(1,col===COL.copper?'#6E3616':'#3E3028');ctx.fillStyle=tg;ctx.beginPath();ctx.roundRect?ctx.roundRect(c[0]-u*.6,y-u*.42,u*1.2,u*.84,u*.12):ctx.rect(c[0]-u*.6,y-u*.42,u*1.2,u*.84);ctx.fill();
-      if(crack){ctx.strokeStyle='#2A1E16';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(c[0]-u*.1,y-u*.42);ctx.lineTo(c[0]+u*.05,y-u*.1);ctx.lineTo(c[0]-u*.08,y+u*.2);ctx.stroke();if(!RM){const d=(time*1.2)%1;ctx.fillStyle='rgba(62,142,222,.9)';ctx.beginPath();ctx.ellipse(c[0]-u*.05,y+u*.5+d*u*1.2,u*.09,u*.13,0,0,7);ctx.fill();}}
-      else{ctx.fillStyle='rgba(255,255,255,.35)';ctx.fillRect(c[0]-u*.5,y-u*.3,u*1,u*.12);}};
-    if(out<1)trap(c[1]+out*r*1.8,COL.old,true);if(inn>0)trap(c[1]-(1-inn)*r*1.8,COL.copper,false);}
-  ctx.restore();ctx.strokeStyle=ACCENT;ctx.lineWidth=3;ctx.beginPath();ctx.arc(c[0],c[1],r,0,7);ctx.stroke();
-  // the handle of the lens
-  ctx.lineWidth=Math.max(4,S*.22);ctx.lineCap='round';ctx.strokeStyle='#26313F';ctx.beginPath();ctx.moveTo(c[0]+r*.72,c[1]+r*.72);ctx.lineTo(c[0]+r*1.15,c[1]+r*1.15);ctx.stroke();ctx.restore();}
-/* the test: everything running, and the reading */
-function flow(f,time){const k=sm(seg(f[4],0,.3))*(1-sm(seg(f[5],.5,1))*.6);if(k<=0)return;
-  N.lines.forEach((l,i)=>{const L=lens(l.p), tot=L[L.length-1];const n=Math.max(2,Math.round(tot*1.3));const st=lineStyle(l.k);
-    for(let j=0;j<n;j++){const d=((j/n)+(RM?0:time*.25)+i*.13)%1;const q=P(...along(l.p,L,d*tot));ctx.fillStyle=TRADE==='electrical'?`rgba(255,226,120,${k})`:`rgba(255,255,255,${.85*k})`;ctx.beginPath();ctx.arc(q[0],q[1],st.w*.38,0,7);ctx.fill();}});}
-// spots off the house for the floating pieces: right of it on a desktop, above the roof on a phone
-const SPOT=()=>mobile?{phone:[10.8,8.7],gauge:[10.6,8.6],lens:[1.9,8.4]}:{phone:[13.6,4.6],gauge:[13.4,5.3],lens:[14.0,7.5]};
-function gauge(f){const k=sm(seg(f[4],.1,.4));if(k<=0)return;const a=1-sm(seg(f[5],.4,.8));if(a<=0)return;const c=P(...SPOT().gauge);const r=S*1.1;
-  ctx.save();ctx.globalAlpha=k*a;ctx.fillStyle='#fff';ctx.shadowColor='rgba(20,28,40,.3)';ctx.shadowBlur=14;ctx.beginPath();ctx.arc(c[0],c[1],r,0,7);ctx.fill();ctx.shadowColor='transparent';
-  ctx.strokeStyle='#E5E9EF';ctx.lineWidth=r*.14;ctx.beginPath();ctx.arc(c[0],c[1],r*.72,Math.PI*.8,Math.PI*2.2);ctx.stroke();
-  const v=sm(seg(f[4],.15,.7));ctx.strokeStyle='#1F8A5B';ctx.beginPath();ctx.arc(c[0],c[1],r*.72,Math.PI*.8,Math.PI*(.8+1.4*v*.72));ctx.stroke();
-  ctx.fillStyle='#141C28';ctx.textAlign='center';ctx.font=`700 ${Math.max(10,r*.3)}px Outfit,sans-serif`;ctx.fillText(TEST.value,c[0],c[1]+r*.12);ctx.font=`500 ${Math.max(8,r*.16)}px "JetBrains Mono",monospace`;ctx.fillStyle='#778296';ctx.fillText(TEST.label.toUpperCase(),c[0],c[1]+r*.45);ctx.textAlign='left';ctx.restore();}
-function done(f){const k=sm(seg(f[5],.3,.7));if(k<=0)return;const c=P(...N.at);ctx.save();ctx.globalAlpha=k;ctx.fillStyle='#1F8A5B';ctx.beginPath();ctx.arc(c[0],c[1],S*.42,0,7);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(2,S*.09);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(c[0]-S*.18,c[1]);ctx.lineTo(c[0]-S*.04,c[1]+S*.14);ctx.lineTo(c[0]+S*.2,c[1]-S*.14);ctx.stroke();ctx.restore();
-  // lamps on in every room as the evening comes
-  WINDOWS.forEach(([x,y,w,h])=>{const a=P(x,y+h);ctx.fillStyle=`rgba(255,206,120,${.35*k})`;ctx.fillRect(a[0],a[1],w*S,h*S);});}
-/* the van: in from the right, parked on the drive, away at the end */
-function van(f,time){const inn=sm(seg(f[1],.1,.85)), out=sm(seg(f[5],.55,1));if(inn<=0)return;const x=mobile?lerp(14,7.6,inn)+out*8:lerp(18.5,12.5,inn)+out*6;const b=P(x,mobile?-1.95:.05);const w=3.3*S,h=1.55*S;
-  ctx.save();ctx.translate(b[0],b[1]);
-  // its shadow on the drive
-  const sg=ctx.createRadialGradient(w*.5,0,0,w*.5,0,w*.6);sg.addColorStop(0,'rgba(0,0,0,.35)');sg.addColorStop(1,'rgba(0,0,0,0)');ctx.save();ctx.scale(1,.12);ctx.fillStyle=sg;ctx.beginPath();ctx.arc(w*.5,0,w*.6,0,7);ctx.fill();ctx.restore();
-  // the body: white panels with a soft reflection along the side, and the livery stripe
-  const shape=()=>{ctx.beginPath();ctx.moveTo(0,-S*.3);ctx.lineTo(0,-h+S*.1);ctx.quadraticCurveTo(0,-h,S*.15,-h);ctx.lineTo(w*.72,-h);ctx.quadraticCurveTo(w*.8,-h*.95,w*.92,-h*.55);ctx.quadraticCurveTo(w,-h*.52,w,-h*.42);ctx.lineTo(w,-S*.3);ctx.closePath();};
-  shape();const bg=ctx.createLinearGradient(0,-h,0,0);bg.addColorStop(0,'#FFFFFF');bg.addColorStop(.45,'#EEF1F4');bg.addColorStop(.55,'#DDE2E7');bg.addColorStop(1,'#BCC3CA');ctx.fillStyle=bg;ctx.fill();ctx.strokeStyle='rgba(30,40,50,.25)';ctx.lineWidth=1;ctx.stroke();
-  ctx.save();shape();ctx.clip();ctx.fillStyle=ACCENT;ctx.fillRect(0,-h*.48,w,h*.18);const lv=ctx.createLinearGradient(0,-h*.48,0,-h*.3);lv.addColorStop(0,'rgba(255,255,255,.3)');lv.addColorStop(1,'rgba(0,0,0,.2)');ctx.fillStyle=lv;ctx.fillRect(0,-h*.48,w,h*.18);
-    const hl=ctx.createLinearGradient(0,-h*.8,0,-h*.7);hl.addColorStop(0,'rgba(255,255,255,0)');hl.addColorStop(.5,'rgba(255,255,255,.8)');hl.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=hl;ctx.fillRect(S*.2,-h*.8,w*.6,h*.1);ctx.restore();
-  // the cab window, a door line, the mirror and the lamps
-  const gl=ctx.createLinearGradient(w*.74,-h*.94,w*.9,-h*.58);gl.addColorStop(0,'#7FA6C4');gl.addColorStop(.5,'#D6E6F2');gl.addColorStop(1,'#5D7E99');ctx.fillStyle=gl;ctx.beginPath();ctx.moveTo(w*.74,-h*.92);ctx.quadraticCurveTo(w*.79,-h*.9,w*.89,-h*.6);ctx.lineTo(w*.74,-h*.58);ctx.closePath();ctx.fill();
-  ctx.strokeStyle='rgba(30,40,50,.3)';ctx.beginPath();ctx.moveTo(w*.7,-h*.95);ctx.lineTo(w*.7,-S*.32);ctx.stroke();ctx.fillStyle='#2A323B';ctx.fillRect(w*.7-S*.25,-h*.42,S*.14,S*.05);
-  ctx.fillStyle='#1E242B';ctx.fillRect(w*.72,-h*.66,S*.12,S*.2);ctx.fillStyle='#FFF2C8';ctx.fillRect(w-S*.12,-h*.5,S*.1,S*.14);ctx.fillStyle='#C0392B';ctx.fillRect(0,-h*.62,S*.08,S*.22);
-  ctx.fillStyle='#141C28';let fs=Math.max(8,S*.36);ctx.font=`800 ${fs}px Outfit,sans-serif`;let t=BRAND;while(ctx.measureText(t).width>w*.62&&fs>6){fs-=.5;ctx.font=`800 ${fs}px Outfit,sans-serif`;}ctx.fillText(t,S*.25,-h*.62);
-  // the wheels: tyres with a five-spoke steel rim
-  [w*.2,w*.8].forEach(cx=>{const cy=-S*.28, r=S*.32;ctx.fillStyle='#262B31';ctx.beginPath();ctx.arc(cx,cy,r+S*.06,Math.PI,0);ctx.fill();const t2=ctx.createRadialGradient(cx,cy,r*.5,cx,cy,r);t2.addColorStop(0,'#2B3036');t2.addColorStop(1,'#0B0D0F');ctx.fillStyle=t2;ctx.beginPath();ctx.arc(cx,cy,r,0,7);ctx.fill();
-    const rg=ctx.createRadialGradient(cx-r*.15,cy-r*.15,0,cx,cy,r*.5);rg.addColorStop(0,'#EEF1F4');rg.addColorStop(1,'#8B95A0');ctx.fillStyle=rg;ctx.beginPath();ctx.arc(cx,cy,r*.48,0,7);ctx.fill();ctx.strokeStyle='#5F6973';ctx.lineWidth=1.2;const sp=-x*.9;for(let i=0;i<5;i++){const a=sp+i*Math.PI*2/5;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r*.12,cy+Math.sin(a)*r*.12);ctx.lineTo(cx+Math.cos(a)*r*.42,cy+Math.sin(a)*r*.42);ctx.stroke();}});
-  // on the way: a pin and the minutes counting down above the van
-  const k=seg(f[1],.1,.85);if(k>0&&k<1){ctx.fillStyle=ACCENT;ctx.font=`600 ${Math.max(10,S*.34)}px "JetBrains Mono",monospace`;ctx.fillText(`${Math.max(1,Math.round(JOB.eta*(1-k)))} min`,S*.2,-h-S*.3);}
-  ctx.restore();}
-/* the phone ringing, at the start */
-function phone(f,time){const a=1-sm(seg(f[0],.6,1));if(a<=0)return;const c=P(...SPOT().phone);const r=S*.75;ctx.save();ctx.globalAlpha=a;
-  for(let i=0;i<3;i++){const k=RM?.5:((time*.9+i/3)%1);ctx.strokeStyle=`{{A:29,99,216}}${(1-k)*.6})`;ctx.lineWidth=2;ctx.beginPath();ctx.arc(c[0],c[1],r+k*S*1.2,0,7);ctx.stroke();}
-  ctx.fillStyle=ACCENT;ctx.beginPath();ctx.arc(c[0],c[1],r,0,7);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(2,S*.1);ctx.lineCap='round';ctx.beginPath();ctx.arc(c[0],c[1],r*.45,Math.PI*.85,Math.PI*2.15);ctx.stroke();ctx.restore();}
-
-/* ============ HUD ============ */
-const sl=$('#steps');STAGES.forEach(()=>sl.appendChild(document.createElement('li')));
-const stepEls=[...sl.children];let shown=-1;
-function hud(p,f){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
-  if(idx!==shown){shown=idx;$('#jNum').textContent=idx+1;$('#jTitle').textContent=STAGES[idx].n;$('#jText').textContent=STAGES[idx].c;$('#jClock').textContent=STAGES[idx].clock;}
-  stepEls.forEach((li,i)=>li.style.setProperty('--f',f[i].toFixed(3)));
-  $('#mEta').innerHTML=f[1]>=.85?`${JOB.eta}<small>min</small>`:'—';
-  $('#mTime').innerHTML=`${Math.round(JOB.minutes*sm(seg(p,.32,.9)))}<small>min</small>`;
-  $('#mParts').textContent=Math.round(JOB.parts*sm(seg(f[3],.2,.9)));}
+/* ============ THE TEXTS ============ */
+// one text per step, in the business's words; the van's text carries its ETA, the test its reading, the last the price
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+$('#av').textContent=BRAND.replace(/[^A-Z0-9]/g,'').slice(0,2)||BRAND.slice(0,2);
+const extra=i=>i===1?`<span class="x"><span>${JOB.eta} min away</span><span class="eta"><i></i></span></span>`:i===2?`<span class="x">⚑ ${esc(FAULT)}</span>`:i===4?`<span class="x ok">✓ ${esc(TEST.label)} ${esc(TEST.value)}</span>`:i===STAGES.length-1?`<span class="x ok">✓ ${esc(JOB.price)}, as quoted</span>`:'';
+const typing=$('#typing');
+const msgs=STAGES.map((s,i)=>{const el=document.createElement('div');el.className='msg';el.innerHTML=`<b>${esc(s.n)}.</b> ${esc(s.c)}${extra(i)}<time>${esc(s.clock)}</time>`;typing.before(el);return el;});
+const etaBar=msgs[1].querySelector('.eta i');
 
 /* ============ FRAME ============ */
-const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
-let cur=0,last=-1;const t0=performance.now();
-function frame(p,time){ctx.setTransform(DPR,0,0,DPR,0,0);const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
-  backdrop(p);shell();network(f);fault(p,f,time);flow(f,time);trace(f,time);spanner(f,time);done(f);van(f,time);phone(f,time);closeup(f,time);gauge(f);
-  const k=mobile?seg(p,.01,.05):seg(p,.06,.12);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
-  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,f);}
+let cur=0;const t0=performance.now();
 function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
-// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
-// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+const mobile=()=>innerWidth<820;
+function frame(p,time){
+  const f=FLAT?STAGES.map(()=>1):STAGES.map(s=>seg(p,s.w[0],s.w[1]));
+  // the film is the job itself: it starts as the engineer arrives and runs to the test
+  film.draw(FLAT?1:AUTO?(time/Math.max(4,film.seconds()))%1:clamp(seg(p,.14,.88)),time);
+  const k=mobile()?seg(p,.01,.05):seg(p,.06,.12);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);meter.classList.toggle('on',FLAT||k>=1);
+  // a text lands a little way into each step, with the dots showing just before
+  let typ=false;msgs.forEach((el,i)=>{const on=FLAT||(i===0?p>.015:f[i]>.12);el.classList.toggle('on',on);if(!on&&!typ&&(i===0?p>0:f[i]>0))typ=true;});
+  typing.classList.toggle('on',typ&&!FLAT);
+  etaBar.style.setProperty('--e',(FLAT?1:sm(seg(f[1],.15,.95))).toFixed(3));
+  $('#mEta').innerHTML=f[1]>=.85?`${JOB.eta}<small>min</small>`:'—';
+  $('#mTime').innerHTML=`${Math.round(JOB.minutes*(FLAT?1:sm(seg(p,.32,.9))))}<small>min</small>`;
+  $('#mParts').textContent=Math.round(JOB.parts*sm(seg(f[3],.2,.9)));
+}
 let gLast=-1e9,gForce=90;
-addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
-function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+addEventListener('resize',()=>{gForce=30;film.size();});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){if(AUTO)return false;const r=$('#stage').getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
   if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
+if(nav)addEventListener('scroll',()=>nav.classList.toggle('light',hero.getBoundingClientRect().bottom<70),{passive:true});
 function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
-layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
 requestAnimationFrame(loop);
 })();
 </script>
@@ -720,4 +534,14 @@ drawSlots();
 })();
 </script>
 
+<script>
+/* the title arrives word by word */
+(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;let k=0;
+ // each word in its own clipped box; a block inside the title (a second line) keeps its place and has its words split too
+ const unit=(box,el)=>{const w=document.createElement('span');w.className='w';el.style.animationDelay=(150+k++*80)+'ms';w.appendChild(el);box.appendChild(w)};
+ const split=box=>{const parts=[...box.childNodes],blk=parts.map(n=>n.nodeType===1&&getComputedStyle(n).display==='block');box.textContent='';
+  parts.forEach((n,j)=>{if(n.nodeType===3)n.textContent.split(/(\s+)/).forEach(x=>{if(!x)return;if(/^\s+$/.test(x)){box.appendChild(document.createTextNode(' '));return}const i=document.createElement('i');i.textContent=x;unit(box,i)});
+   else if(n.nodeType===1){if(blk[j]){box.appendChild(n);if(n.children.length===0)split(n);return}const i=document.createElement('i');i.appendChild(n);unit(box,i)}});};
+ split(h);h.classList.add('split')})();
+</script>
 </body></html>

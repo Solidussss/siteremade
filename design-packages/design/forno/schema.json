@@ -1,5 +1,5 @@
 {
-  "about": "What a pizzeria may change in the Forno design. Everything not listed here is protected: the hero (dough ball, stretch, sauce spiral, the dropped toppings, the wood-fired oven, the 90-second bake, the HUD), the topping drawings and drop physics, the party calculator maths, the pickup board, layout, spacing, type scale, breakpoints and all interaction code.",
+  "about": "What a pizzeria may change in the Forno design. Everything not listed here is protected: the film hero (its letterbox, subtitles and contact strip), the printed menu, the order slip, the party calculator maths, the pickup board, layout, spacing, type scale, breakpoints and all interaction code.",
   "text": {
     "business.name": [
       3,
@@ -254,8 +254,8 @@
   },
   "rules": [
     "Text may not contain < > { } or line breaks.",
-    "The hero always makes the same pie: a hand-stretched base, a tomato spiral, torn mozzarella, salami cups and basil, baked 90 seconds in a wood-fired oven at 485 °C. hero.stages are its seven captions, in order: dough ball, stretch, sauce, toppings, into the oven, bake, out.",
-    "menu.pies: each pie is drawn from its toppings: 1-4 kinds from mozz, provola, salame, basil, nduja, friar (friarielli/greens), mush, olive, burrata (count 1), garlic, sausage, morta (mortadella/ham), with a count each (1-14). finish adds oregano, oil, parm (grated cheese), honey, pist (pistachio). base is rossa (tomato) or bianca (no tomato); veg marks vegetarian pies.",
+    "The hero is a film of one pie being made. hero.stages are its seven subtitles, in order: dough ball, stretch, sauce, toppings, into the oven, bake, out.",
+    "menu.pies: each pie lists its toppings as 1-4 kinds from mozz, provola, salame, basil, nduja, friar (friarielli/greens), mush, olive, burrata (count 1), garlic, sausage, morta (mortadella/ham), with a count each (1-14). finish adds oregano, oil, parm (grated cheese), honey, pist (pistachio). base is rossa (tomato) or bianca (no tomato); veg marks vegetarian pies.",
     "build.toppings: 3-9 builder toppings, each a different kind, with the price of one portion.",
     "hours: Sunday to Saturday, null = closed, on the quarter hour; pickup slots run from 15 minutes after opening to 15 minutes before closing."
   ],

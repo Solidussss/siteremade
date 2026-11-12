@@ -2,6 +2,7 @@
 // REASONS, PRICES and HOURS, the hours table, team list and FAQ as the page shows them, and the rules the schema
 // can't express. Runs at build time only.
 'use strict';
+const film = require('../../engine/film');
 const { FILTERS } = require('../../engine/template');
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -24,7 +25,9 @@ const initials = (name) => { const w = name.split(',')[0].replace(/^(Dr|Mr|Mrs|M
 
 function derive(c) {
   const money = (n) => c.locale.currency + Math.round(n).toLocaleString(c.locale.locale);
+  const hh = c.hero || {};
   return {
+    film: film.derive(c, [hh.before, hh.photo2, hh.photo3, hh.photo], [120, 220, 205]),
     reasonsJs: c.booking.reasons.map((r, i) => `  {id:${jsd(r.id || 'r' + i)},name:${jsd(r.name)},min:${r.minutes},note:${jsd(r.note)},with:${jsd(r.with)}}`).join(',\n'),
     hoursJs: '{' + DAYS.map((d, i) => [d, i]).filter(([d]) => c.hours[d]).map(([d, i]) => `${i}:[${num(hr(c.hours[d].open))},${num(hr(c.hours[d].close))}]`).join(',') + '}',
     pricesJs: GROUPS.map(([k, g], gi) => `  {g:${jsd(g)},items:[\n${c.prices[k].map((it) => `    [${jsd(it.name)},${jsd(it.note)},${it.price}]`).join(',\n')}]}${gi < GROUPS.length - 1 ? ',' : ''}`).join('\n'),

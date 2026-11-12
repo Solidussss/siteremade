@@ -2,6 +2,7 @@
 // steps, the menu with its levels, the shade looks, the team and the opening hours) and the rules the schema can't
 // express (prices per level, menu ids, the client's colour, opening hours, widths of the big type). Build time only.
 'use strict';
+const film = require('../../engine/film');
 const { FILTERS } = require('../../engine/template');
 const js = FILTERS.js;
 
@@ -16,6 +17,7 @@ function derive(c) {
   const digits = c.contact.phone.replace(/[^\d+]/g, '');
   const H = c.book.hours || {};
   return {
+    film: film.derive(c, null, [217, 136, 60]),
     tel: digits,
     businessSaid: c.business.name.replace(/\s*&\s*/g, ' and '),
     brandSaid: c.brand.name.replace(/\s*&\s*/g, ' and '),

@@ -1,12 +1,13 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>{{business.name}}</title>
+<meta name="description" content="{{hero.lede|attr}}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* Layout: a builder doing extensions and renovations. One pinned side view of a house where a rear extension is built
-   as you scroll (drawn up, groundworks, walls, roof, glazing and finishes, handover), with the weeks, bricks, budget
-   and inspections counting up; then what a homeowner needs: a price range for their project, the house before and
+/* Layout: a builder doing extensions and renovations. The real extension goes up as you scroll (the builder's own
+   video or photos) under a split-flap week board; along the bottom the money spent runs toward the fixed price and
+   never past it, the building-control checks stamped on as they pass; then what a homeowner needs: a price range for their project, the house before and
    after, and how the build runs week by week. */
 :root{
   color-scheme:light;
@@ -58,45 +59,72 @@ p{margin:0}
 @media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
 @media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:22px}}
 
-/* hero: the build */
+/* hero: the real build, the week on a split-flap board, the budget track and its stamps */
 .hero{position:relative;height:560vh}
 .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--paper)}
-#build{position:absolute;inset:0;width:100%;height:100%;display:block}
-.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 108px);max-width:520px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
-.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(243,241,236,.97),rgba(243,241,236,.82) 55%,rgba(243,241,236,0));pointer-events:none}
-.hero h1{font-size:clamp(3.4rem,min(7.4vw,10vh),7.6rem)}
+.stage .poster,#film{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.stage .poster{object-fit:cover}
+.veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(243,241,236,.94) 0%,rgba(243,241,236,.72) 32%,rgba(243,241,236,0) 54%),linear-gradient(0deg,rgba(30,31,34,.55),rgba(30,31,34,0) 30%)}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 104px);max-width:560px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero h1{font-size:clamp(3rem,min(6vw,9.4vh),6rem);text-transform:uppercase}
 .hero h1 em{font-style:normal;display:block;color:var(--accent-text)}
-.lede{color:var(--ink-2);max-width:42ch;font-size:clamp(16px,1.3vw,18px)}
-.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
-.card{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 2*var(--gut)));padding:16px 20px 18px;background:var(--sheet);border-radius:3px;border-top:4px solid var(--hivis);box-shadow:0 22px 56px -30px rgba(30,31,34,.45),0 0 0 1px rgba(30,31,34,.06)}
-.card .row{display:flex;justify-content:space-between;gap:10px;font:500 11.5px/1.2 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.card .week{color:var(--accent-text)}
-.card h3{font-size:clamp(32px,3vw,44px);margin-top:10px}
-.card p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.2em}
-.board{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;border-radius:3px;background:var(--ink);color:#fff;box-shadow:0 22px 56px -30px rgba(30,31,34,.6);overflow:hidden}
-.board div{padding:12px 18px;border-right:1px solid rgba(255,255,255,.12);border-bottom:1px solid rgba(255,255,255,.12);min-width:0}
-.board div:nth-child(2n){border-right:0}
-.board div:nth-child(n+3){border-bottom:0}
-.board dt{font:500 10.5px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6)}
-.board dd{margin:6px 0 0;font:700 30px/1 var(--f-display);letter-spacing:.01em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--hivis)}
-.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:500 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap}
-.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+.lede{color:var(--ink-2);max-width:44ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.split .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.22em;margin-bottom:-.14em}
+.split .w{padding-right:.1em;margin-right:-.1em}
+.split .w>i{display:inline-block;font-style:normal;animation:wrise .9s cubic-bezier(.16,1,.3,1) both}
+@keyframes wrise{from{transform:translateY(108%)}}
+.hint{position:absolute;z-index:4;left:var(--gut);bottom:calc(140px + env(safe-area-inset-bottom,0px));font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none}
+.hint i{display:block;width:1px;height:22px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
 @keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
-/* short laptop screens: a little less type so the copy clears the card */
-@media (min-width:821px) and (max-height:780px){.hero-copy{gap:14px}.hero h1{font-size:clamp(3.4rem,min(7.4vw,9vh),7.6rem)}.lede{font-size:15px}}
+/* the step in hand */
+.now{position:absolute;z-index:3;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 104px);max-width:min(440px,38vw);opacity:0;transition:opacity .45s}
+.now.on{opacity:1}
+.now .k{display:inline-block;font:600 11px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;padding:6px 8px;background:var(--hivis);color:var(--ink)}
+.now h3{font:700 clamp(44px,5vw,76px)/.95 var(--f-display);text-transform:uppercase;margin-top:12px;letter-spacing:-.005em}
+.now p{color:var(--ink-2);margin-top:12px;font-size:17px;max-width:34ch;min-height:4.7em}
+/* the split-flap week board */
+.flap{position:absolute;z-index:3;right:var(--gut);top:calc(env(safe-area-inset-top,0px) + 86px);display:grid;justify-items:end;gap:8px;opacity:0;transition:opacity .45s}
+.flap.on{opacity:1}
+.flap>span{font:600 11px var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:#fff;padding:4px 8px;background:var(--ink)}
+.flap .digs{display:flex;gap:6px}
+.flap .dg{position:relative;width:clamp(56px,5vw,76px);height:clamp(78px,7vw,104px);border-radius:6px;background:linear-gradient(180deg,#2b2d31 50%,#1d1e21 50%);color:#F4F2EC;font:700 clamp(58px,5.4vw,84px)/clamp(78px,7vw,104px) var(--f-display);text-align:center;box-shadow:0 18px 30px -16px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.08);overflow:hidden;perspective:300px}
+.flap .dg::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(0,0,0,.6)}
+.flap .dg.flip b{display:block;animation:flip .32s ease-in}
+.flat .flap .dg.flip b{animation:none}
+@keyframes flip{0%{transform:rotateX(-90deg);opacity:.2}100%{transform:none;opacity:1}}
+/* the budget track: spent so far against the fixed price, the inspections stamped where they passed */
+.track{position:absolute;z-index:4;left:var(--gut);right:var(--gut);bottom:calc(18px + env(safe-area-inset-bottom,0px));color:#F4F2EC;opacity:0;transition:opacity .45s;padding:16px 20px 12px;border-radius:6px;background:rgba(30,31,34,.84);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 20px 40px -24px rgba(0,0,0,.7)}
+.track.on{opacity:1}
+.track .hd{display:flex;justify-content:space-between;align-items:baseline;gap:14px;margin-bottom:22px}
+.track .hd dl{display:flex;gap:26px;margin:0}
+.track dt{font:500 10px/1.2 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;opacity:.75}
+.track dd{margin:4px 0 0;font:700 28px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.track .fix{text-align:right}
+.track .fix dd{color:var(--hivis)}
+.rail{position:relative;height:14px;border-radius:2px;background:repeating-linear-gradient(-45deg,rgba(255,255,255,.12) 0 8px,rgba(255,255,255,.05) 8px 16px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.rail .sp{position:absolute;left:0;top:0;bottom:0;width:calc(var(--s,0) * 100%);background:linear-gradient(90deg,var(--accent-2),#6c9bd0);border-radius:2px}
+.rail::after{content:"";position:absolute;right:-1px;top:-8px;bottom:-8px;width:3px;background:var(--hivis)}
+.stamp{position:absolute;left:var(--x);top:50%;margin-top:-23px;transform:translateX(-50%) rotate(-12deg) scale(1.8);opacity:0;display:grid;place-items:center;width:46px;height:46px;border-radius:50%;border:2px solid #F4F2EC;color:#F4F2EC;text-align:center;font:600 7px/1.1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;background:#1F4E79;transition:transform .35s cubic-bezier(.3,1.6,.5,1),opacity .2s}
+.stamp b{display:block;font:700 15px/1 var(--f-display)}
+.stamp.on{opacity:1;transform:translateX(-50%) rotate(-12deg) scale(1)}
+.wks{display:flex;justify-content:space-between;margin-top:6px;font:500 10px var(--f-mono);letter-spacing:.1em;opacity:.7}
 @media (max-width:820px){
-  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 86px);max-width:none;right:var(--gut);gap:14px}
-  .hero h1{font-size:clamp(2.8rem,12vw,3.4rem)}
+  .veil{background:linear-gradient(180deg,rgba(243,241,236,.94) 0%,rgba(243,241,236,.66) 34%,rgba(243,241,236,0) 50%),linear-gradient(0deg,rgba(30,31,34,.75),rgba(30,31,34,0) 44%)}
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 84px);max-width:none;right:var(--gut);gap:14px}
   .hero .acts{display:none}
-  .board{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:minmax(0,.9fr) minmax(0,1.05fr) minmax(0,1.2fr) minmax(0,.85fr);bottom:calc(206px + env(safe-area-inset-bottom,0px))}
-  .board div{padding:9px 10px;border-bottom:0}
-  .board div:nth-child(2n){border-right:1px solid rgba(255,255,255,.12)}
-  .board div:last-child{border-right:0}
-  .board dt{font-size:8.5px;letter-spacing:.03em}
-  .board dd{font-size:clamp(18px,5.2vw,24px)}
-  .card{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 18px}
-  .card p{font-size:14px;min-height:4.4em}
   .hint{display:none}
+  .now{top:calc(env(safe-area-inset-top,0px) + 76px);right:calc(var(--gut) + 104px);max-width:none}
+  .now h3{font-size:36px}
+  .now p{font-size:14.5px;min-height:3em}
+  .flap{top:calc(env(safe-area-inset-top,0px) + 76px)}
+  .flap .dg{width:42px;height:58px;font-size:44px;line-height:58px}
+  .track .hd{flex-wrap:wrap}
+  .track .hd dl{gap:14px}
+  .track dd{font-size:21px}
+  .stamp{width:34px;height:34px;margin-top:-17px;font-size:5.5px}
+  .stamp b{font-size:10px}
+  .track{padding:12px 12px 8px}
 }
 
 /* sections */
@@ -185,9 +213,11 @@ footer{background:var(--ink);color:var(--paper);padding:clamp(70px,9vw,120px) va
 </nav>
 
 <main>
-<section class="hero" id="top" aria-label="A rear extension built week by week, scroll to run it">
+<section class="hero" id="top" aria-label="A rear extension built week by week; scroll to run it">
   <div class="stage" id="stage">
-    <canvas id="build" aria-hidden="true"></canvas>
+{{#if $.film.poster}}    <img class="poster" src="{{$.film.poster|attr}}" alt="" aria-hidden="true">
+{{/if}}    <canvas id="film" role="img" aria-label="An extension built by {{brand.name|attr}}, from bare ground to finished"></canvas>
+    <div class="veil" id="veil" aria-hidden="true"></div>
     <div class="hero-copy" id="heroCopy">
       <p class="eyebrow">{{hero.eyebrow}}</p>
       <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
@@ -195,16 +225,17 @@ footer{background:var(--ink);color:var(--paper);padding:clamp(70px,9vw,120px) va
       <div class="acts"><a class="btn" href="#price">{{hero.cta}}</a><a class="btn ghost" href="#work">{{hero.cta2}}</a></div>
     </div>
     <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
-    <dl class="board" id="board" aria-live="off">
-      <div><dt>{{count.labels.0}}</dt><dd id="kWeek">0</dd></div>
-      <div><dt>{{count.labels.1}}</dt><dd id="kBricks">0</dd></div>
-      <div><dt>{{count.labels.2}}</dt><dd id="kBudget">{{locale.currency}}0</dd></div>
-      <div><dt>{{count.labels.3}}</dt><dd id="kChecks">0</dd></div>
-    </dl>
-    <div class="card" id="card" aria-live="polite">
-      <div class="row"><span><b id="gNum">1</b> of 6</span><span class="week" id="gWeek">{{count.weekWord}} 0</span></div>
-      <h3 id="gTitle">{{stages.0.n}}</h3>
-      <p id="gText">{{stages.0.c}}</p>
+    <div class="now" id="now" aria-live="polite"><span class="k"><span id="gNum">1</span> of 6</span><h3 id="gTitle">{{stages.0.n}}</h3><p id="gText">{{stages.0.c}}</p></div>
+    <div class="flap" id="flap" aria-hidden="true"><span id="gWeek">{{count.weekWord}} 0</span><div class="digs" id="digs"><span class="dg"><b>0</b></span><span class="dg"><b>0</b></span></div></div>
+    <div class="track" id="track">
+      <div class="hd"><dl id="board" aria-live="off">
+          <div><dt>{{count.labels.0}}</dt><dd id="kWeek">0</dd></div>
+          <div><dt>{{count.labels.1}}</dt><dd id="kBricks">0</dd></div>
+          <div><dt>{{count.labels.3}}</dt><dd id="kChecks">0</dd></div>
+        </dl>
+        <dl><div><dt>{{count.labels.2}}</dt><dd id="kBudget">{{locale.currency}}0</dd></div><div class="fix"><dt>&nbsp;</dt><dd id="kFixed"></dd></div></dl></div>
+      <div class="rail" id="rail"><i class="sp" id="spent"></i></div>
+      <div class="wks"><span>{{count.weekWord}} 0</span><span id="wEnd"></span></div>
     </div>
   </div>
 </section>
@@ -393,55 +424,50 @@ const COUNT={{$.countJs|raw}};
 const WEEKS=[{{$.startsJs|raw}}];
 const CUR={{locale.currency|js}};
 
-/* ============ GEOMETRY ============ */
-const cv=$('#build'), ctx=cv.getContext('2d');
-let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null;
-// the house with its garden and the digger's room is 2.7 wide and 1.95 tall (ground at .78 of the height)
-function fit(ax,ay){const s=Math.min((ax[1]-ax[0])/2.6,(ay[1]-ay[0])/1.95);return{s,x:(ax[0]+ax[1])/2,y:ay[0]+s*1.6};}
-function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
-  const top=Math.max(70,H*.1), bd=$('#board').getBoundingClientRect(), cd=$('#card').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
-  if(mobile){const lo=bd.top-stg.top-10;const s=Math.min(W*1.15/2.6,(lo-top)/1.95);LA=LB={s,x:W/2,y:(top+lo)/2+s*.62};}
-  else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(bd.top,cd.top)-stg.top;
-    const side=fit([cr+20,W*.98],[H*.1,low-12]), under=fit([W*.05,W*.95],[cb+20,low-12]);
-    LA=side.s>=under.s*.8?side:under;LB=fit([W*.06,W*.94],[top,low-14]);}}
+/* ============ THE FILM ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint'), now=$('#now'), flap=$('#flap'), track=$('#track');
+const STILL=/[?&]still\b/.test(location.search), FLAT=RM||STILL;
+if(FLAT)document.documentElement.classList.add('flat');
+{{$.film.runtime|raw}}
+const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fx:.6,fy:.5});
+let inFrame=false;try{inFrame=window.self!==window.top}catch(e){inFrame=true}
+let AUTO=inFrame&&scrollY<1&&!FLAT;
+if(AUTO)addEventListener('scroll',()=>{if(AUTO&&scrollY>=1){AUTO=false;film.poke()}},{passive:true});
 
-/* ============ HUD ============ */
-let shown=-1;
+/* ============ THE BOARD AND THE TRACK ============ */
 const money=n=>CUR+Math.round(n).toLocaleString('en-GB');
-// big budgets in short on the board: 185k, 1.2m
 const short=n=>n>=1e6?CUR+(n/1e6).toFixed(n>=1e7?0:1).replace(/.0$/,'')+'m':n>=1e5?CUR+Math.round(n/1e3)+'k':money(n);
-function hud(p,f){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
-  if(idx!==shown){shown=idx;$('#gNum').textContent=idx+1;$('#gTitle').textContent=STAGES[idx].n;$('#gText').textContent=STAGES[idx].c;}
-  const wk=Math.round(idx<5?lerp(WEEKS[idx],WEEKS[idx+1],f[idx]):lerp(WEEKS[5],COUNT.weeks,f[5]));$('#gWeek').textContent=`${WEEKWORD} ${wk}`;$('#kWeek').textContent=wk;
-  $('#kBricks').textContent=Math.round(COUNT.bricks*sm(f[2])).toLocaleString('en-GB');$('#kBudget').textContent=short(wk>=COUNT.weeks?COUNT.budget:Math.round(COUNT.budget*clamp(wk/COUNT.weeks)/100)*100);
-  const passed=(f[1]>.9)+(f[2]>.9)+(f[3]>.9)+(f[5]>.6);$('#kChecks').textContent=Math.round(COUNT.checks*passed/4);}
-// the word before the week number on the card
 const WEEKWORD={{count.weekWord|js}};
+$('#kFixed').textContent='/ '+short(COUNT.budget);$('#wEnd').textContent=`${WEEKWORD} ${COUNT.weeks}`;
+// a stamp where each inspection passes: after the groundworks, the walls, the roof, and the final sign-off
+const CHECK_AT=[[1,.9],[2,.9],[3,.9],[5,.6]];
+const weekAt=(i,f)=>i<5?lerp(WEEKS[i],WEEKS[i+1],f):lerp(WEEKS[5],COUNT.weeks,f);
+const stamps=CHECK_AT.map(([i,f],n)=>{const el=document.createElement('span');el.className='stamp';el.style.setProperty('--x',(clamp(weekAt(i,f)/COUNT.weeks)*100).toFixed(2)+'%');el.innerHTML=`<span><b>✓</b>Check ${n+1}</span>`;$('#rail').appendChild(el);return el;});
+const digs=[...$('#digs').children];let lastWk='',shown=-1;
 
 /* ============ FRAME ============ */
-const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
 let cur=0;const t0=performance.now();
-function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#F3F1EC';ctx.fillRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
-  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
-  const S=lerp(LA.s,LB.s,m), X=lerp(LA.x,LB.x,m), Y=lerp(LA.y,LB.y,m);
-  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
-  ctx.globalAlpha=mobile?.25+.75*k:1;
-  ctx.save();ctx.translate(X,Y);ctx.scale(S,S);
-  ctx.save();ctx.beginPath();ctx.roundRect(-1.3,-1.6,2.6,1.9,.03);ctx.clip();scene(ctx,f,time,HOUSE);ctx.restore();
-  ctx.restore();ctx.globalAlpha=1;
-  copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
-  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,f);}
 function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
-// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
-// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+const mobile=()=>innerWidth<820;
+function frame(p,time){
+  const P=FLAT?1:p, f=STAGES.map(s=>FLAT?1:seg(p,s.w[0],s.w[1]));
+  film.draw(FLAT?1:AUTO?(time/Math.max(4,film.seconds()))%1:clamp(seg(P,.04,.95)),time);
+  const k=mobile()?seg(p,.01,.05):seg(p,.06,.12);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);const on=FLAT||k>=1;[now,flap,track].forEach(el=>el.classList.toggle('on',on));
+  let idx=0;STAGES.forEach((s,i)=>{if(P>=s.w[0])idx=i;});
+  if(idx!==shown){shown=idx;$('#gNum').textContent=idx+1;$('#gTitle').textContent=STAGES[idx].n;$('#gText').textContent=STAGES[idx].c;}
+  const wk=Math.round(weekAt(idx,f[idx]));$('#gWeek').textContent=`${WEEKWORD} ${wk}`;$('#kWeek').textContent=wk;
+  // the board flips a digit when it changes
+  const s=String(Math.min(99,wk)).padStart(2,'0');if(s!==lastWk){digs.forEach((d,i)=>{if(s[i]!==lastWk[i]){d.firstChild.textContent=s[i];if(!FLAT){d.classList.remove('flip');void d.offsetWidth;d.classList.add('flip');}}});lastWk=s;}
+  $('#kBricks').textContent=Math.round(COUNT.bricks*sm(f[2])).toLocaleString('en-GB');
+  const spent=wk>=COUNT.weeks?COUNT.budget:Math.round(COUNT.budget*clamp(wk/COUNT.weeks)/100)*100;$('#kBudget').textContent=short(spent);$('#spent').style.setProperty('--s',clamp(spent/COUNT.budget).toFixed(4));
+  let passed=0;CHECK_AT.forEach(([i,ff],n)=>{const ok=f[i]>ff;if(ok)passed++;stamps[n].classList.toggle('on',ok);});$('#kChecks').textContent=Math.round(COUNT.checks*passed/4);
+}
 let gLast=-1e9,gForce=90;
-addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
-function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+addEventListener('resize',()=>{gForce=30;film.size();});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){if(AUTO)return false;const r=$('#stage').getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
   if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
 function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
-layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
-if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
 requestAnimationFrame(loop);
 })();
 </script>
@@ -504,4 +530,14 @@ let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(drawBA,120)
 })();
 </script>
 
+<script>
+/* the title arrives word by word */
+(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;let k=0;
+ // each word in its own clipped box; a block inside the title (a second line) keeps its place and has its words split too
+ const unit=(box,el)=>{const w=document.createElement('span');w.className='w';el.style.animationDelay=(150+k++*80)+'ms';w.appendChild(el);box.appendChild(w)};
+ const split=box=>{const parts=[...box.childNodes],blk=parts.map(n=>n.nodeType===1&&getComputedStyle(n).display==='block');box.textContent='';
+  parts.forEach((n,j)=>{if(n.nodeType===3)n.textContent.split(/(\s+)/).forEach(x=>{if(!x)return;if(/^\s+$/.test(x)){box.appendChild(document.createTextNode(' '));return}const i=document.createElement('i');i.textContent=x;unit(box,i)});
+   else if(n.nodeType===1){if(blk[j]){box.appendChild(n);if(n.children.length===0)split(n);return}const i=document.createElement('i');i.appendChild(n);unit(box,i)}});};
+ split(h);h.classList.add('split')})();
+</script>
 </body></html>

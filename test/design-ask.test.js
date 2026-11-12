@@ -27,7 +27,7 @@ test('a colour request becomes a checked plan: theme fields only, before -> afte
   const r = await ask.plan(d, spec, content, 'Change the colours to black and gold', w);
   assert.equal(r.ok, true, r.message);
   assert.equal(r.kind, 'design');
-  assert.deepEqual(r.diff.map((x) => [x.path, x.before, x.after]), [['theme.accent', '#e23b2f', '#a67c1e'], ['theme.room', '#131110', '#0b0a09']]);
+  assert.deepEqual(r.diff.map((x) => [x.path, x.before, x.after]), [['theme.accent', '#e23b2f', '#a67c1e'], ['theme.room', '#14201b', '#0b0a09']]);
   // the writer only ever sees the editable fields -- the template (drawing, scroll scenes, animation) is not in the prompt
   assert.match(w.sent[0].user, /theme\.accent \[colour\]/);
   assert.doesNotMatch(w.sent[0].user + w.sent[0].system, /<canvas|requestAnimationFrame|getContext/);

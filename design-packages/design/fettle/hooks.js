@@ -4,6 +4,7 @@
 'use strict';
 const { FILTERS } = require('../../engine/template');
 const js = FILTERS.js;
+const film = require('../../engine/film');
 
 const WINDOWS = ['[0,.14]', '[.14,.32]', '[.32,.5]', '[.5,.66]', '[.66,.84]', '[.84,1]'];
 const list = (a) => a.map(js).join(',');
@@ -16,6 +17,7 @@ function derive(c) {
     brandSaid: c.brand.name.replace(/\s*&\s*/g, ' and '),
     brandUpper: c.brand.name.toUpperCase(),
     hoursSp: c.contact.hours + ' ',
+    film: film.derive(c, null, [29, 99, 216]),
     stagesJs: c.stages.map((s, i) => ` {n:${js(s.n)},c:${js(s.c)},clock:${js(s.clock)},w:${WINDOWS[i]}}`).join(',\n'),
     testJs: `{label:${js(c.job.test.label)},value:${js(c.job.test.value)}}`,
     jobJs: `{ref:${js(c.job.ref)},eta:${c.job.eta},minutes:${c.job.minutes},parts:${c.job.parts},price:${js(c.job.price)}}`,

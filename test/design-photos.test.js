@@ -19,7 +19,7 @@ test('a photo is a JPEG/PNG/WebP data URL or an https link, nothing else', () =>
   for (const bad of ['javascript:alert(1)', 'http://x.com/a.jpg', 'https://x.com/a".jpg', 'https://x.com/a).jpg', 'data:image/svg+xml;base64,PHN2Zz4=', 'data:image/jpeg;base64,ab"c', 'data:image/jpeg;base64,' + 'A'.repeat(1024 * 1024)]) assert.equal(isPhoto(bad), false, bad);
 });
 
-for (const [design, paths, hero] of [['steadyhand', ['hero.photo', 'cut.photo'], 'id="hero" class="photo"'], ['saltglass', ['hero.photo'], 'class="hero photo"']]) {
+for (const [design, paths, hero] of [['steadyhand', ['hero.photo', 'cut.photo'], '"photos":[{"src":"data:image/jpeg'], ['saltglass', ['hero.photo'], 'class="hero photo"']]) {
   test(`${design}: the editor offers the photo, the page shows it, and without it the drawing is unchanged`, () => {
     const { D, c } = load(design);
     const before = build(D, c).html;
@@ -40,16 +40,18 @@ for (const [design, paths, hero] of [['steadyhand', ['hero.photo', 'cut.photo'],
 
 test('up to four photos are the chapters of the scroll scene, in order, and the design keeps its steps', () => {
   const ph = (t) => 'data:image/jpeg;base64,' + Buffer.from(t).toString('base64');
-  for (const [design, step] of [['steadyhand', 'id="hudS"'], ['saltglass', 'id="hudCode"']]) {
+  for (const [design, step] of [['steadyhand', 'id="ladder"'], ['saltglass', 'id="hudCode"']]) {
     const { D, c } = load(design);
     const { content } = editor.apply(D, {}, c, { changes: [['hero.photo', 'last'], ['hero.before', 'first'], ['hero.photo2', 'second'], ['hero.photo3', 'third']].map(([path, t]) => ({ path, value: ph(t) })) });
     assert.deepEqual(validate(D, content).errors, []);
-    const html = build(D, content).html;
+    const all = build(D, content).html;
+    // (a v5 design's film carries them in its script, in the same order)
+    const own = all.includes('SRFilm('), html = own ? all.slice(all.indexOf('SRFilm(')) : all;
     const order = ['first', 'second', 'third', 'last'].map((t) => html.indexOf(ph(t)));
     assert.ok(order.every((x, i) => x > 0 && (i === 0 || x > order[i - 1])), `${design}: before, middle, middle, main`);
-    assert.equal((html.match(/class="shot"/g) || []).length, 4);
-    assert.ok(html.includes(step), `${design}: the steps are still on the page`);
-    assert.ok(!/hzoom|animation:\s*hzoom/.test(html), `${design}: no timed zoom, the motion follows the scroll`);
+    if (!own) assert.equal((html.match(/class="shot"/g) || []).length, 4);
+    assert.ok(all.includes(step), `${design}: the steps are still on the page`);
+    assert.ok(!/hzoom|animation:\s*hzoom/.test(all), `${design}: no timed zoom, the motion follows the scroll`);
   }
   const { D, c } = load('saltglass');
   assert.ok(build(D, c).html.includes('Illustration. Shades'), 'the drawn teeth still say they are an illustration');
@@ -60,10 +62,14 @@ test('up to four photos are the chapters of the scroll scene, in order, and the 
 // THE PHOTO HERO (design-packages/engine/photo-hero.js): every design with "photoHero" in design.json takes up to four
 // photos as the chapters of its scroll hero. Without a main photo the page is byte-for-byte what it was.
 const photoHero = require('../design-packages/engine/photo-hero');
-const withHero = fs.readdirSync(DIR).filter((d) => { try { return !!JSON.parse(fs.readFileSync(path.join(DIR, d, 'design.json'), 'utf8')).photoHero; } catch (e) { return false; } });
+const heroOf = (d) => { try { return JSON.parse(fs.readFileSync(path.join(DIR, d, 'design.json'), 'utf8')).photoHero || null; } catch (e) { return null; } };
+const withHero = fs.readdirSync(DIR).filter((d) => heroOf(d) && !heroOf(d).own);
+// (a v5 design draws its own film from the same fields: "photoHero": { "own": true })
+const ownHero = fs.readdirSync(DIR).filter((d) => heroOf(d) && heroOf(d).own);
 
 test('the common designs have the photo hero', () => {
-  for (const d of ['larder', 'ochre', 'ventricle', 'brisk', 'verge', 'camber']) assert.ok(withHero.includes(d), d);
+  // (the photo fields, either through the shared scene or a v5 design's own film)
+  for (const d of ['larder', 'ochre', 'ventricle', 'brisk', 'verge', 'camber']) assert.ok(withHero.includes(d) || ownHero.includes(d), d);
   assert.ok(!withHero.includes('steadyhand') && !withHero.includes('saltglass'), 'those two have their own photo modes');
 });
 
@@ -92,6 +98,25 @@ for (const design of withHero) {
     const back = editor.apply(D, {}, content, { changes: [{ path: 'photos.main', value: '' }, { path: 'photos.before', value: '' }] }).content;
     assert.equal(back.photos, undefined, 'cleared: the group goes too');
     assert.equal(build(D, back).html, before);
+  });
+}
+
+for (const design of ownHero) {
+  test(`${design}: its own film takes the photos, builds valid, and is left as it was without them`, () => {
+    const { D, c } = load(design);
+    const before = build(D, c).html;
+    assert.ok(!before.includes('srph-cfg'));
+    const f = editor.fields(D, {}, c).fields;
+    assert.deepEqual(f.slice(0, 4).map((x) => x.path), ['photos.main', 'photos.before', 'photos.second', 'photos.third']);
+    const { content } = editor.apply(D, {}, c, { changes: [{ path: 'photos.main', value: PHOTO }, { path: 'photos.before', value: PHOTO }] });
+    assert.deepEqual(validate(D, content).errors, []);
+    const html = build(D, content).html;
+    assert.ok(!html.includes('srph-cfg'), 'the shared photo scene stays out');
+    assert.equal(html.split(PHOTO).length - 1 >= 2, true, 'both photos reach the film');
+    const back = editor.apply(D, {}, content, { changes: [{ path: 'photos.main', value: '' }, { path: 'photos.before', value: '' }] }).content;
+    assert.equal(build(D, back).html, before);
+    const film = build(D, { ...c, photos: { main: '/v/poster.jpg', video: '/v/hero.mp4', frames: '/v/f/{n}.jpg|159|1280|720|10' } }).html;
+    assert.ok(film.includes('"frames":{"u":"/v/f/{n}.jpg","n":159'), 'the take as frames');
   });
 }
 

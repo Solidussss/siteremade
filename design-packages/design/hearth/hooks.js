@@ -5,6 +5,7 @@
 'use strict';
 const { FILTERS } = require('../../engine/template');
 const js = FILTERS.js;
+const film = require('../../engine/film');
 
 const WINDOWS = ['[0,.15]', '[.15,.3]', '[.3,.48]', '[.48,.66]', '[.66,.84]', '[.84,1]'];
 const BRICK = { red: '#B8654A', brown: '#8C5A44', stone: '#CBB994', white: '#E6DFD3' };
@@ -19,6 +20,7 @@ function derive(c) {
     tel: c.contact.phone.replace(/[^\d+]/g, ''),
     businessSaid: c.business.name.replace(/\s*&\s*/g, ' and '),
     brandSaid: c.brand.name.replace(/\s*&\s*/g, ' and '),
+    film: film.derive(c, null, [168, 78, 40]),
     stagesJs: c.stages.map((s, i) => ` {n:${js(s.n)},c:${js(s.c)},w:${WINDOWS[i]}}`).join(',\n'),
     houseJs: `{brick:${js(BRICK[c.house.brick])},door:${js(c.house.door)},yours:${yours},rooms:[${slots.map((s) => `{wall:${js(s.wall)},throw:${js(s.throw)}}`).join(',')}]}`,
     keyJs: `{rooms:${c.key.rooms},in:${js(c.key.in)},breakfast:${js(c.key.breakfast)},walk:${js(c.key.walk)}}`,
@@ -28,6 +30,8 @@ function derive(c) {
     roomsJs: R.map((x) => ` {n:${js(x.n)},d:${js(x.d)},sleeps:${x.sleeps},bed:${js(x.bed)},size:${js(x.size)},p:${num(x.p)},wall:${js(x.wall)},throw:${js(x.throw)}}`).join(',\n'),
     wordsJs: `{${['from', 'per', 'sleeps', 'pick', 'leave', 'min', 'taken', 'night', 'nights', 'sent', 'reply'].map((k) => `${k}:${js(c.dates.words[k])}`).join(',')}}`,
     rm: String(r),
+    yourRoom: R[r] ? R[r].n : '',
+    rmNo: String(r + 1),
     room0: R[r].n,
     weekend: num(c.dates.weekend),
     placesJs: c.nearby.places.map((p) => ` {n:${js(p.n)},d:${js(p.d)},m:${p.m},dir:${p.dir}}`).join(',\n'),

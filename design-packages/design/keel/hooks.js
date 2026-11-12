@@ -3,6 +3,7 @@
 // the map's coast and the booking windows) and the rules the schema can't express (colour tones per kind, the service
 // area, widths of the big type). Runs at build time only.
 'use strict';
+const film = require('../../engine/film');
 const { FILTERS } = require('../../engine/template');
 const js = FILTERS.js;
 
@@ -32,6 +33,7 @@ function derive(c) {
   const mat = (m) => ` {id:${js(m.kind)},name:${js(m.name)},short:${js(m.short)},${m.lay ? `lay:${js(m.lay)},` : ''}${m.ridge ? `ridge:${js(m.ridge)},` : ''}blurb:${js(m.blurb)},life:${js(m.life)},wind:${js(m.wind)},warranty:${js(m.warranty)},weight:${js(m.weight)},price:[${m.price[0]},${m.price[1]}],unit:${js(m.unit)},per:${KIND[m.kind].per},fasten:${js(m.fasten)},perSq:${KIND[m.kind].perSq},lbSq:${KIND[m.kind].lbSq},\n  colours:[${m.colours.map((x) => `{name:${js(x.name)},c:[${x.c.map((h) => js(h.toLowerCase())).join(',')}]}`).join(',')}]}`;
   const coast = COASTS[c.book.coast];
   return {
+    film: film.derive(c, null, [242, 106, 27]),
     tel,
     businessSaid: said(c.business.name),
     brandSaid: said(c.brand.name),
