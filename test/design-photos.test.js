@@ -68,7 +68,8 @@ const withHero = fs.readdirSync(DIR).filter((d) => heroOf(d) && !heroOf(d).own);
 const ownHero = fs.readdirSync(DIR).filter((d) => heroOf(d) && heroOf(d).own);
 
 test('the common designs have the photo hero', () => {
-  for (const d of ['larder', 'ochre', 'ventricle', 'brisk', 'verge', 'camber']) assert.ok(withHero.includes(d), d);
+  // (the photo fields, either through the shared scene or a v5 design's own film)
+  for (const d of ['larder', 'ochre', 'ventricle', 'brisk', 'verge', 'camber']) assert.ok(withHero.includes(d) || ownHero.includes(d), d);
   assert.ok(!withHero.includes('steadyhand') && !withHero.includes('saltglass'), 'those two have their own photo modes');
 });
 
