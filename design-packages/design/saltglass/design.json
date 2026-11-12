@@ -118,5 +118,12 @@
       }
     }
   ],
-  "videoHero": {"section":"#top","stage":".stage","hide":["#smileCanvas"]}
+  "videoHero": {
+    "section": "#top",
+    "stage": ".stage",
+    "hide": [
+      "#smileCanvas"
+    ],
+    "own": true
+  }
 }
