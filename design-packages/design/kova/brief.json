@@ -23,7 +23,7 @@
     "locale.currency"
   ],
   "writerNotes": [
-    "The shoe is a fixed drawing of a running trainer that comes apart into six layers as you scroll, always in this order: laces, tongue, upper, plate, foam (midsole), outsole. layers are their callout title, a short name for phones and one spec line, in the brand's words; specs (grams, millimetres) are facts from the brief, otherwise describe without numbers. If the shoe has no plate, describe the layer as a shank or stability layer rather than inventing a carbon plate.",
+    "The hero is a film of the trainer coming apart into six layers as you scroll (the design's own take, or the brand's video or photos), always in this order: laces, tongue, upper, plate, foam (midsole), outsole. layers are their callout title, a short name for phones and one spec line, in the brand's words; specs (grams, millimetres) are facts from the brief, otherwise describe without numbers. If the shoe has no plate, describe the layer as a shank or stability layer rather than inventing a carbon plate.",
     "product.bigA and product.bigB are the giant outline word behind the shoe (e.g. DRIFT / 1): the product name in capitals split in two, the second part short (a number or a short word).",
     "colorways: exactly four, each with a short name (it is shown huge behind the shoe, so 4-9 letters work best) and seven shoe colours as #rrggbb: upper, over (overlays), mid (midsole), sole (outsole), lace, acc (small accent details), tongue; plus bg, a pale background for that colorway's section. The first colorway is the one the hero shows.",
     "foam.heelMm is the heel stack height in millimetres (the press demo uses it); foam.body describes the foam.",
