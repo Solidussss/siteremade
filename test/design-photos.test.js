@@ -60,7 +60,10 @@ test('up to four photos are the chapters of the scroll scene, in order, and the 
 // THE PHOTO HERO (design-packages/engine/photo-hero.js): every design with "photoHero" in design.json takes up to four
 // photos as the chapters of its scroll hero. Without a main photo the page is byte-for-byte what it was.
 const photoHero = require('../design-packages/engine/photo-hero');
-const withHero = fs.readdirSync(DIR).filter((d) => { try { return !!JSON.parse(fs.readFileSync(path.join(DIR, d, 'design.json'), 'utf8')).photoHero; } catch (e) { return false; } });
+const heroOf = (d) => { try { return JSON.parse(fs.readFileSync(path.join(DIR, d, 'design.json'), 'utf8')).photoHero || null; } catch (e) { return null; } };
+const withHero = fs.readdirSync(DIR).filter((d) => heroOf(d) && !heroOf(d).own);
+// (a v5 design draws its own film from the same fields: "photoHero": { "own": true })
+const ownHero = fs.readdirSync(DIR).filter((d) => heroOf(d) && heroOf(d).own);
 
 test('the common designs have the photo hero', () => {
   for (const d of ['larder', 'ochre', 'ventricle', 'brisk', 'verge', 'camber']) assert.ok(withHero.includes(d), d);
@@ -92,6 +95,25 @@ for (const design of withHero) {
     const back = editor.apply(D, {}, content, { changes: [{ path: 'photos.main', value: '' }, { path: 'photos.before', value: '' }] }).content;
     assert.equal(back.photos, undefined, 'cleared: the group goes too');
     assert.equal(build(D, back).html, before);
+  });
+}
+
+for (const design of ownHero) {
+  test(`${design}: its own film takes the photos, builds valid, and is left as it was without them`, () => {
+    const { D, c } = load(design);
+    const before = build(D, c).html;
+    assert.ok(!before.includes('srph-cfg'));
+    const f = editor.fields(D, {}, c).fields;
+    assert.deepEqual(f.slice(0, 4).map((x) => x.path), ['photos.main', 'photos.before', 'photos.second', 'photos.third']);
+    const { content } = editor.apply(D, {}, c, { changes: [{ path: 'photos.main', value: PHOTO }, { path: 'photos.before', value: PHOTO }] });
+    assert.deepEqual(validate(D, content).errors, []);
+    const html = build(D, content).html;
+    assert.ok(!html.includes('srph-cfg'), 'the shared photo scene stays out');
+    assert.equal(html.split(PHOTO).length - 1 >= 2, true, 'both photos reach the film');
+    const back = editor.apply(D, {}, content, { changes: [{ path: 'photos.main', value: '' }, { path: 'photos.before', value: '' }] }).content;
+    assert.equal(build(D, back).html, before);
+    const film = build(D, { ...c, photos: { main: '/v/poster.jpg', video: '/v/hero.mp4', frames: '/v/f/{n}.jpg|159|1280|720|10' } }).html;
+    assert.ok(film.includes('"frames":{"u":"/v/f/{n}.jpg","n":159'), 'the take as frames');
   });
 }
 

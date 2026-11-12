@@ -160,7 +160,8 @@ const attr = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').rep
 function inject(html, manifest, content) {
   const cfg = manifest && manifest.photoHero;
   const list = shots(content);
-  if (!cfg || !list.length) return html;
+  // (a design that draws its own media hero, "photoHero": { "own": true }, takes the fields but not this scene)
+  if (!cfg || cfg.own || !list.length) return html;
   const name = (content.business && (content.business.name || content.business.wordmark)) || (content.brand && content.brand.name) || '';
   const video = content.photos && typeof content.photos.video === 'string' && /^(https:\/\/|\/)[^\s"'<>()]+$/.test(content.photos.video) ? content.photos.video : null;
   // (the take as still pictures, flipped through with the scroll: "/…{n}.jpg?…|count|w|h|seconds")
