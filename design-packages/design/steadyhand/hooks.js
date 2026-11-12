@@ -3,6 +3,7 @@
 // can't express (hours, prices, widths of the big type). Runs at build time only.
 'use strict';
 const { FILTERS } = require('../../engine/template');
+const film = require('../../engine/film');
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const isTime = (s) => /^([01]\d|2[0-3]):[0-5]\d$/.test(s || '') || s === '24:00';
 const hr = (s) => { const [h, m] = s.split(':').map(Number); return h + m / 60; };
@@ -21,7 +22,11 @@ function derive(c) {
     });
   });
   const b0 = c.booking.barbers[0];
+  const h = c.hero || {};
   return {
+    film: film.derive(c, [h.before, h.photo2, h.photo3, h.photo], [214, 168, 92]),
+    cutMinutesJs: num(c.cut.fadeMinutes),
+    classic: c.theme.fonts === 'classic',
     menuJs: lines.join('\n'),
     first: { name: first.name, minutes: first.minutes, price: first.price },
     heroChair: `Chair ${b0.chair} · ${b0.name}`,
@@ -35,13 +40,19 @@ function derive(c) {
 // word may be wider than a 320px phone (288px). Desktop: the title column is min(470px, 35vw) for type up to 116px,
 // 4.3 em at 1440x900, the tightest case (wider screens are taller too); the original wraps to 3 lines there, and a 4th
 // runs the copy into the HUD (seen in the stress test), so the two lines may take at most 3. Calibrated in the stress test.
-const LIMITS = { heroLine: 6.1, heroDesktopEm: 4.3, heroDesktopLines: 3, sectionWord: 5.4, navRow: 228 };
+// Widths in em of the chosen display font (the classic serif as written, the gothic and Oswald faces in capitals).
+// Phone (360px): the hero title is 44px in a 328px column, so no word wider than 7.2 em; section titles 40px, 8 em;
+// the nav row is the wordmark (16px, wrapping between words) beside the booking button (14px) and the 44px section
+// button: 216px of text for its longest word and the button.
+const LIMITS = { heroWord: 7.2, sectionWord: 8, navRow: 216 };
 // lines a text wraps to in a column `width` em wide (greedy, as the browser does)
+// eslint-disable-next-line no-unused-vars
 function wrapLines(words, width, em) { let n = 1, w = 0; const sp = em(' '); for (const word of words) { const ww = em(word); if (w && w + sp + ww > width) { n++; w = ww; } else w += (w ? sp : 0) + ww; } return n; }
 
 function validate(c, ctx) {
   const e = [];
-  const em = (t) => ctx.textEm('display', String(t).replace(/\*/g, '').toUpperCase());
+  const caps = c.theme.fonts !== 'classic';
+  const em = (t) => ctx.textEm('display', caps ? String(t).replace(/\*/g, '').toUpperCase() : String(t).replace(/\*/g, ''));
   // opening hours
   const H = c.hours || {};
   for (const d of DAYS) {
@@ -69,16 +80,12 @@ function validate(c, ctx) {
   if (!/^[A-Z]{2,4}$/.test(c.booking.refPrefix)) e.push('booking.refPrefix: 2-4 capital letters');
   if (c.business.wordmark !== c.business.wordmark.toUpperCase()) e.push('business.wordmark: write it in capitals');
   // big type widths
-  for (const p of ['hero.line1', 'hero.line2']) { const w = em(ctx.get(c, p)); if (w > LIMITS.heroLine) e.push(`${p}: too wide for the hero title on a phone (${w.toFixed(2)} em, room for ${LIMITS.heroLine})`); }
-  const desk = ['hero.line1', 'hero.line2'].reduce((a, p) => a + wrapLines(String(ctx.get(c, p)).replace(/\*/g, '').split(/\s+/), LIMITS.heroDesktopEm, em), 0);
-  if (desk > LIMITS.heroDesktopLines) e.push(`hero.line1 + hero.line2: the hero title wraps to ${desk} lines on a wide desktop (room for ${LIMITS.heroDesktopLines}); shorten one line`);
+  for (const p of ['hero.line1', 'hero.line2']) for (const word of String(ctx.get(c, p)).split(/\s+/).filter(Boolean)) { const w = em(word); if (w > LIMITS.heroWord) e.push(`${p}: the word "${word.replace(/\*/g, '')}" is too wide for the hero title on a phone (${w.toFixed(2)} em, room for ${LIMITS.heroWord})`); }
   for (const p of ['cut.titleA', 'cut.titleB', 'menu.title', 'booking.titleA', 'booking.titleB']) {
-    const v = ctx.get(c, p);
-    for (const word of v.split(/\s+/)) { const w = em(word); if (w > LIMITS.sectionWord) e.push(`${p}: the word "${word}" is too wide for a phone (${w.toFixed(2)} em, room for ${LIMITS.sectionWord})`); }
+    for (const word of String(ctx.get(c, p)).split(/\s+/).filter(Boolean)) { const w = em(word); if (w > LIMITS.sectionWord) e.push(`${p}: the word "${word}" is too wide for a phone (${w.toFixed(2)} em, room for ${LIMITS.sectionWord})`); }
   }
-  // phone nav row: pole + brand (20px, .06em tracking) + sound button + booking button (14px, 600) on a 375px phone
-  const brand = (em(c.business.wordmark) + 0.05 * [...c.business.wordmark].length) * 20, cta = ctx.textEm('cta', c.nav.cta) * 14;
-  if (brand + cta > LIMITS.navRow) e.push(`business.wordmark + nav.cta: the phone nav row needs ${Math.round(brand + cta)}px of text, a 360px phone has ${LIMITS.navRow}px ("${c.business.wordmark}" + "${c.nav.cta}")`);
+  const brand = Math.max(...c.business.wordmark.split(/\s+/).map((w) => ctx.textEm('display', w) * 16 + 0.04 * 16 * [...w].length)), cta = ctx.textEm('cta', c.nav.cta) * 14;
+  if (brand + cta > LIMITS.navRow) e.push(`business.wordmark + nav.cta: the phone nav row needs ${Math.round(brand + cta)}px of text, a 360px phone has ${LIMITS.navRow}px (the longest word of "${c.business.wordmark}" + "${c.nav.cta}")`);
   return e;
 }
 
