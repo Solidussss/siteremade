@@ -1,11 +1,13 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>{{business.name}}</title>
+<meta name="description" content="{{hero.lede|attr}}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Albert+Sans:wght@400;500;600;700&family=Sometype+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* Layout: a yoga and pilates studio. One pinned class drawn as a clock: a ring that fills phase by phase (settle,
-   breathe, warm up, flow, peak, rest) with a breathing circle inside and the effort traced round the edge; then what
+/* Layout: a yoga and pilates studio. The real class plays as you scroll (the studio's own video or photos) beside a
+   breathing orb you can follow: it swells and settles at each phase's pace with the teacher's cue inside, the hour
+   marked round it phase by phase; then what
    a new student needs: the timetable with spaces left, passes and prices, and what the first class is like. */
 :root{
   color-scheme:light;
@@ -56,46 +58,62 @@ p{margin:0}
 @media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
 @media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:23px}}
 
-/* hero: the class as a clock */
-.hero{position:relative;height:540vh}
+/* hero: the real class, and a breathing orb to follow with the hour marked round it */
+.hero{position:relative;height:560vh}
 .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--sand)}
-#clock{position:absolute;inset:0;width:100%;height:100%;display:block}
-.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 108px);max-width:520px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
-.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(245,240,234,.96),rgba(245,240,234,.78) 55%,rgba(245,240,234,0));pointer-events:none}
-.hero h1{font-size:clamp(2.8rem,min(5.8vw,9vh),5.6rem)}
-.hero h1 em{font-style:italic;display:block;color:var(--accent-text)}
-.lede{color:var(--ink-2);max-width:42ch;font-size:clamp(16px,1.3vw,18px)}
-.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
-.phase{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 2*var(--gut)));padding:16px 20px;border-radius:22px;background:var(--sheet);box-shadow:0 22px 56px -30px rgba(43,36,32,.4),0 0 0 1px rgba(43,36,32,.05)}
-.phase .row{display:flex;justify-content:space-between;gap:10px;font:500 11px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.phase .min{color:var(--accent-text)}
-.phase h3{font-size:clamp(28px,2.6vw,36px);margin-top:10px}
-.phase p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.2em}
-.breath{display:flex;align-items:center;gap:10px;margin-top:10px;font:500 11px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.breath i{display:block;width:10px;height:10px;border-radius:50%;background:var(--accent);transform:scale(var(--b,1));transition:transform .2s}
-.stats{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;border-radius:22px;background:var(--sheet);box-shadow:0 22px 56px -30px rgba(43,36,32,.4),0 0 0 1px rgba(43,36,32,.05);overflow:hidden}
-.stats div{padding:12px 18px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
-.stats div:nth-child(2n){border-right:0}
-.stats div:nth-child(n+3){border-bottom:0}
-.stats dt{font:500 10.5px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.stats dd{margin:6px 0 0;font:400 29px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
-.stats dd small{font:500 11px var(--f-mono);color:var(--muted);margin-left:4px}
-.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:500 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap}
-.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+.stage .poster,#film{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.stage .poster{object-fit:cover}
+.veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(245,240,234,.92) 0%,rgba(245,240,234,.7) 32%,rgba(245,240,234,0) 56%)}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 108px);max-width:540px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero h1{font-size:clamp(2.8rem,min(5.6vw,8.8vh),5.4rem)}
+.hero h1 em{display:block;color:var(--accent-text)}
+.lede{color:var(--ink-2);max-width:44ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.split .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.22em;margin-bottom:-.14em}
+.split .w{padding-right:.1em;margin-right:-.1em}
+.split .w>i{display:inline-block;font-style:inherit;animation:wrise .9s cubic-bezier(.16,1,.3,1) both}
+@keyframes wrise{from{transform:translateY(108%)}}
+.hint{position:absolute;z-index:4;left:var(--gut);bottom:calc(30px + env(safe-area-inset-bottom,0px));font:400 11px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:10px;pointer-events:none}
+.hint i{display:block;width:1px;height:22px;background:linear-gradient(var(--muted),transparent);animation:cue 1.6s ease-in-out infinite}
 @keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
+/* the orb: breathes at the phase's pace; the hour round it, a phase an arc, a bead where the class has got to */
+.orbw{position:absolute;z-index:3;left:clamp(32px,9vw,150px);top:50%;width:min(46vh,400px);aspect-ratio:1;transform:translateY(-50%);opacity:0;transition:opacity .6s}
+.orbw.on{opacity:1}
+.orbw svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.orbw .tr{fill:none;stroke:rgba(43,36,32,.12);stroke-width:2}
+.orbw .ph{fill:none;stroke:var(--accent);stroke-width:4;stroke-linecap:round;opacity:.22;transition:opacity .4s}
+.orbw .ph.done{opacity:.55}.orbw .ph.now{opacity:1}
+.orbw .bead{fill:var(--sheet);stroke:var(--accent);stroke-width:3}
+.orb{position:absolute;inset:16%;border-radius:50%;display:grid;place-items:center;text-align:center;padding:14%;background:radial-gradient(circle at 38% 32%,rgba(255,253,250,.95),rgba(241,226,234,.82) 58%,rgba(122,62,90,.22));box-shadow:0 30px 80px -30px rgba(122,62,90,.55),inset 0 0 0 1px rgba(255,255,255,.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transform:scale(var(--b,.8))}
+.orb b{display:block;font:400 clamp(22px,2.4vw,34px)/1.05 var(--f-display);color:var(--ink)}
+.orb span{display:block;margin-top:10px;font:500 10.5px/1.3 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent-text)}
+/* the phase in hand and the hour so far */
+.ph-say{position:absolute;z-index:3;left:calc(clamp(32px,9vw,150px) + min(46vh,400px) + clamp(24px,3vw,48px));top:50%;transform:translateY(-50%);width:min(360px,30vw);padding:20px 22px;border-radius:18px;background:rgba(255,253,250,.86);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 24px 60px -34px rgba(43,36,32,.5);opacity:0;transition:opacity .5s}
+.ph-say.on{opacity:1}
+.ph-say .k{font:500 11px/1.2 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent-text)}
+.ph-say h3{font:400 clamp(34px,3.6vw,52px)/1 var(--f-display);margin-top:10px}
+.ph-say p{margin-top:10px;color:var(--ink-2);font-size:16px;min-height:4.6em}
+.ph-say dl{display:flex;gap:26px;margin:16px 0 0;padding-top:14px;border-top:1px solid rgba(43,36,32,.14)}
+.ph-say dt{font:400 10px/1.2 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.ph-say dd{margin:5px 0 0;font:400 26px/1 var(--f-display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ph-say dd small{font:400 11px var(--f-mono);color:var(--muted);margin-left:3px}
+.effort{display:flex;align-items:flex-end;gap:3px;height:22px}
+.effort i{width:6px;border-radius:2px;background:rgba(43,36,32,.14);transition:background .3s}
+.effort i:nth-child(1){height:30%}.effort i:nth-child(2){height:47%}.effort i:nth-child(3){height:64%}.effort i:nth-child(4){height:82%}.effort i:nth-child(5){height:100%}
+.effort i.on{background:var(--accent)}
+@media (max-width:1100px) and (min-width:821px){.ph-say{left:auto;right:var(--gut);width:300px}}
 @media (max-width:820px){
-  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 82px);max-width:none;right:var(--gut);gap:14px}
+  .veil{background:linear-gradient(180deg,rgba(245,240,234,.92) 0%,rgba(245,240,234,.66) 36%,rgba(245,240,234,0) 52%),linear-gradient(0deg,rgba(245,240,234,.92),rgba(245,240,234,0) 44%)}
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 84px);max-width:none;right:var(--gut);gap:14px}
   .hero .acts{display:none}
-  .stats{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:minmax(0,.85fr) minmax(0,.95fr) minmax(0,1.35fr) minmax(0,.85fr);bottom:calc(214px + env(safe-area-inset-bottom,0px))}
-  .stats div{padding:9px 10px;border-bottom:0}
-  .stats div:nth-child(2n){border-right:1px solid var(--line)}
-  .stats div:last-child{border-right:0}
-  .stats dt{font-size:8.5px;letter-spacing:.04em}
-  .stats dd{font-size:clamp(19px,5.4vw,24px)}
-  .stats dd small{display:none}
-  .phase{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 18px}
-  .phase p{font-size:14px;min-height:4.6em}
   .hint{display:none}
+  .orbw{left:50%;top:calc(env(safe-area-inset-top,0px) + 76px);width:min(48vw,220px);transform:translateX(-50%)}
+  .ph-say{left:var(--gut);right:var(--gut);top:auto;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:none;width:auto;padding:14px 16px;border-radius:14px}
+  .ph-say h3{font-size:32px}
+  .ph-say p{font-size:14px;min-height:4.3em}
+  .ph-say dd{font-size:22px}
+  .orb b{font-size:17px}
+  .orb span{font-size:9px}
 }
 
 /* sections */
@@ -196,9 +214,11 @@ footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut)
 </nav>
 
 <main>
-<section class="hero" id="top" aria-label="One class from arriving to rest, scroll to run it">
+<section class="hero" id="top" aria-label="One class from arriving to rest; scroll to run it">
   <div class="stage" id="stage">
-    <canvas id="clock" aria-hidden="true"></canvas>
+{{#if $.film.poster}}    <img class="poster" src="{{$.film.poster|attr}}" alt="" aria-hidden="true">
+{{/if}}    <canvas id="film" role="img" aria-label="A class at {{brand.name|attr}}, from a seated breath to standing poses"></canvas>
+    <div class="veil" aria-hidden="true"></div>
     <div class="hero-copy" id="heroCopy">
       <p class="eyebrow">{{hero.eyebrow}}</p>
       <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
@@ -206,17 +226,19 @@ footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut)
       <div class="acts"><a class="btn" href="#timetable">{{hero.cta}}</a><a class="btn ghost" href="#first">{{hero.cta2}}</a></div>
     </div>
     <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
-    <dl class="stats" id="stats" aria-live="off">
-      <div><dt>Minutes</dt><dd id="sMin">0<small>/ {{class.length}}</small></dd></div>
-      <div><dt>Breaths</dt><dd id="sBreaths">0</dd></div>
-      <div><dt>Effort</dt><dd id="sEffort">—</dd></div>
-      <div><dt>In class</dt><dd id="sPeople">{{class.size}}</dd></div>
-    </dl>
-    <div class="phase" id="phase" aria-live="polite">
-      <div class="row"><span><b id="pNum">1</b> of 6</span><span class="min" id="pMin">{{stages.0.from}}–{{stages.0.to}} min</span></div>
+    <div class="orbw" id="orbw" aria-hidden="true">
+      <svg viewBox="0 0 100 100"><circle class="tr" cx="50" cy="50" r="48"/><g id="arcs"></g><circle class="bead" id="bead" cx="50" cy="2" r="2.6"/></svg>
+      <div class="orb" id="orb"><div><b id="oSay">{{stages.0.cue}}</b><span id="oIn">Breathe in</span></div></div>
+    </div>
+    <div class="ph-say" id="say" aria-live="polite">
+      <span class="k"><span id="pNum">1</span> of 6 · <span id="pMin">{{stages.0.from}}–{{stages.0.to}} min</span></span>
       <h3 id="pTitle">{{stages.0.n}}</h3>
       <p id="pText">{{stages.0.c}}</p>
-      <div class="breath"><i id="pDot"></i><span id="pBreath">{{stages.0.cue}}</span></div>
+      <dl id="stats">
+        <div><dt>Minutes</dt><dd id="sMin">0<small>/ {{class.length}}</small></dd></div>
+        <div><dt>Breaths</dt><dd id="sBreaths">0</dd></div>
+        <div><dt>Effort</dt><dd><span class="effort" id="eff"><i></i><i></i><i></i><i></i><i></i></span></dd><dd id="sEffort" style="font-size:12px;font-family:var(--f-mono);margin-top:6px">—</dd></div>
+      </dl>
     </div>
   </div>
 </section>
@@ -278,124 +300,70 @@ footer{background:var(--ink);color:#fff;padding:clamp(70px,9vw,120px) var(--gut)
 (function(){
 "use strict";
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const TOUCH = matchMedia('(pointer:coarse)').matches;let gW=0,gH=0;
+const TOUCH = matchMedia('(pointer:coarse)').matches;
 const $ = s=>document.querySelector(s);
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
 const sm=t=>t*t*(3-2*t);
 const seg=(p,a,b)=>clamp((p-a)/(b-a));
 
-/* ============ THE CLASS (what the hero shows) ============ */
-// six phases: the minutes they cover, how hard they are (1 to 5) and the breath (breaths a minute, and the cue)
+/* ============ THE CLASS ============ */
 const STAGES=[
 {{$.stagesJs|raw}}
 ];
-// the class: its length in minutes, how many in the room, and how effort moves ('flow' rises and falls; 'intervals' work and rest)
 const CLASS={length:{{class.length}},size:{{class.size}},shape:{{class.shape|js}},done:{{class.done|js}}};
-// how each level of effort is named, from 1 to 5
 const EFFORT=['',{{$.effortJs|raw}}];
-const ACCENT='{{A:#7A3E5A}}';
-const HUES=['#B9C9B5','#B9C9B5','#E3C7A0','#E59A7A','#C4677A',ACCENT];
-
-/* ============ GEOMETRY ============ */
-const cv=$('#clock'), ctx=cv.getContext('2d');
-let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null;
-function fit(ax,ay){const r=Math.min(ax[1]-ax[0],ay[1]-ay[0])/2;return{r:r*.82,x:(ax[0]+ax[1])/2,y:(ay[0]+ay[1])/2};}
-function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
-  const top=Math.max(70,H*.1), st=$('#stats').getBoundingClientRect(), ph=$('#phase').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
-  if(mobile){LA=LB=fit([W*.04,W*.96],[top,st.top-stg.top-12]);}
-  else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(st.top,ph.top)-stg.top;
-    const side=fit([cr+30,W*.97],[H*.12,Math.min(H*.84,low-20)]), under=fit([W*.05,W*.95],[cb+20,low-16]);
-    LA=side.r>=under.r*.8?side:under;LB=fit([W*.08,W*.92],[top,Math.min(st.top,ph.top-30)-stg.top-14]);}}
-
-/* the minute the scroll has reached, stage by stage */
-function minuteAt(p){for(const s of STAGES)if(p<s.w[1])return lerp(s.from,s.to,seg(p,s.w[0],s.w[1]));return CLASS.length;}
 function effortAt(m){// smooth between phases; intervals pulse within the harder phases
   let i=STAGES.findIndex(s=>m<s.to);if(i<0)i=STAGES.length-1;const s=STAGES[i], t=(m-s.from)/((s.to-s.from)||1);
   const prev=STAGES[Math.max(0,i-1)].effort;let e=t<.25&&i>0?lerp(prev,s.effort,sm(t/.25)):s.effort;
   if(CLASS.shape==='intervals'&&s.effort>=3){const k=(m-s.from)%3;e=k<2?s.effort:Math.max(1,s.effort-2.5);}
-  else e+=Math.sin(m*1.7)*.18*(s.effort>1?1:0);
   return e;}
-const ang=m=>-Math.PI/2+m/CLASS.length*Math.PI*2;
 
-/* ============ DRAWING ============ */
-function rngS(seed){let x=seed>>>0||1;return()=>{x^=x<<13;x^=x>>>17;x^=x<<5;return((x>>>0)%10000)/10000;};}
-let FLOOR=null, DISC=null;
-function buildFloor(){const f=document.createElement('canvas');f.width=cv.width;f.height=cv.height;const g=f.getContext('2d');g.setTransform(DPR,0,0,DPR,0,0);const r=rngS(3);
-  g.fillStyle='#EDE4D6';g.fillRect(0,0,W,H);const bh=Math.max(46,Math.min(W,H)/9);
-  for(let row=0;row*bh<H+bh;row++){let x=-r()*300;while(x<W){const L=260+r()*420, v=r();g.fillStyle=v<.5?`rgba(120,90,55,${.03+v*.07})`:`rgba(255,252,245,${(v-.5)*.25})`;g.fillRect(x,row*bh,L,bh);
-    for(let k=0;k<9;k++){g.strokeStyle=`rgba(130,95,60,${.05+r()*.08})`;g.lineWidth=.6+r()*.9;g.beginPath();const yy=row*bh+3+r()*(bh-6);g.moveTo(x,yy);for(let t=0;t<=L;t+=16)g.lineTo(x+t,yy+Math.sin(t/(40+k*7)+k)*1.6);g.stroke();}
-    g.fillStyle='rgba(90,65,40,.18)';g.fillRect(x+L-1,row*bh,1.2,bh);x+=L;}g.fillStyle='rgba(90,65,40,.16)';g.fillRect(0,row*bh+bh-1,W,1.2);}
-  // light from a tall window, falling across the boards
-  g.save();g.globalCompositeOperation='lighter';[[.08,.9],[.38,.9]].forEach(([x0,w0])=>{const x=W*x0;const lg=g.createLinearGradient(x,0,x+W*.35,H);lg.addColorStop(0,'rgba(255,236,200,.0)');lg.addColorStop(.3,'rgba(255,236,200,.08)');lg.addColorStop(1,'rgba(255,236,200,.02)');g.fillStyle=lg;g.beginPath();g.moveTo(x,0);g.lineTo(x+W*.22,0);g.lineTo(x+W*.22+W*.3,H);g.lineTo(x+W*.3,H);g.closePath();g.fill();});g.restore();
-  // a plant's leaves in shadow, soft-edged
-  g.save();g.shadowColor='rgba(70,55,40,.16)';g.shadowBlur=14*DPR;g.shadowOffsetX=-4000*DPR;g.fillStyle='#000';for(let i=0;i<14;i++){const a=-1.2+i*.22+r()*.2, L=H*(.18+r()*.14), bx=W*.96, by=H*.98;const tx=bx+Math.cos(a-Math.PI/2)*L, ty=by+Math.sin(a-Math.PI/2)*L;g.save();g.translate(tx+4000,ty);g.rotate(a);g.beginPath();g.ellipse(0,0,L*.09,L*.36,0,0,7);g.fill();g.restore();}g.restore();
-  const v=g.createRadialGradient(W*.55,H*.45,Math.min(W,H)*.2,W*.55,H*.45,Math.max(W,H)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(60,45,30,.12)');g.fillStyle=v;g.fillRect(0,0,W,H);FLOOR=f;}
-function buildDisc(R0){const n=Math.ceil(R0*2.9*DPR), d=document.createElement('canvas');d.width=d.height=n;const g=d.getContext('2d');const c=n/2, R=R0*(mobile?1.16:1.32)*DPR, r=rngS(9);
-  g.save();g.shadowColor='rgba(60,45,30,.35)';g.shadowBlur=R*.08;g.shadowOffsetY=R*.035;g.fillStyle='#E9DFCF';g.beginPath();g.arc(c,c,R,0,7);g.fill();g.restore();
-  g.save();g.beginPath();g.arc(c,c,R,0,7);g.clip();const bg=g.createRadialGradient(c-R*.35,c-R*.4,R*.1,c,c,R);bg.addColorStop(0,'#F6EFE3');bg.addColorStop(1,'#DCCFBB');g.fillStyle=bg;g.fillRect(0,0,n,n);
-  for(let i=0;i<9;i++){g.strokeStyle=`rgba(170,140,100,${.08+r()*.1})`;g.lineWidth=R*(.004+r()*.01);g.beginPath();const y0=c-R+r()*R*2;g.moveTo(c-R,y0);for(let t=0;t<=1;t+=.05)g.lineTo(c-R+t*R*2,y0+Math.sin(t*6+i)*R*.04+t*R*(r()-.5)*.2);g.stroke();}
-  for(let i=0;i<700;i++){const a=r()*6.28, d=Math.sqrt(r())*R, z=R*(.0012+r()*.0045);g.fillStyle=`rgba(140,110,75,${.08+r()*.16})`;g.beginPath();g.ellipse(c+Math.cos(a)*d,c+Math.sin(a)*d,z*2.2,z,r()*.4,0,7);g.fill();}
-  g.strokeStyle='rgba(255,255,255,.5)';g.lineWidth=R*.012;g.beginPath();g.arc(c,c,R*.985,3.4,5.0);g.stroke();g.strokeStyle='rgba(100,75,50,.25)';g.lineWidth=R*.014;g.beginPath();g.arc(c,c,R*.985,.3,1.9);g.stroke();g.restore();DISC={img:d,R0};}
-function ring(c,m,time,k){const {x,y,r}=c, th=r*.11;
-  if(DISC){const sc=r/DISC.R0, n=DISC.img.width/DPR*sc;ctx.drawImage(DISC.img,x-n/2,y-n/2,n,n);}
-  // the track, the five-minute ticks
-  ctx.lineCap='butt';ctx.strokeStyle='rgba(110,85,60,.16)';ctx.lineWidth=th;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke();ctx.strokeStyle='rgba(80,60,40,.18)';ctx.lineWidth=th*.18;ctx.beginPath();ctx.arc(x,y,r-th*.41,0,Math.PI*2);ctx.stroke();ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=th*.12;ctx.beginPath();ctx.arc(x,y,r+th*.44,0,Math.PI*2);ctx.stroke();
-  for(let t=0;t<CLASS.length;t+=5){const a=ang(t), r0=r+th*.75, r1=r+th*(t%15===0?1.35:1.05);ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=t%15===0?1.6:1;ctx.beginPath();ctx.moveTo(x+Math.cos(a)*r0+.8,y+Math.sin(a)*r0+.8);ctx.lineTo(x+Math.cos(a)*r1+.8,y+Math.sin(a)*r1+.8);ctx.stroke();ctx.strokeStyle='rgba(60,45,30,.45)';ctx.beginPath();ctx.moveTo(x+Math.cos(a)*r0,y+Math.sin(a)*r0);ctx.lineTo(x+Math.cos(a)*r1,y+Math.sin(a)*r1);ctx.stroke();
-}
-  // each phase fills in its colour as the class reaches it
-  STAGES.forEach((s,i)=>{if(m<=s.from)return;const a0=ang(s.from)+.012, a1=ang(Math.min(m,s.to))-(m>=s.to?.012:0);if(a1<=a0)return;ctx.strokeStyle=shade(HUES[s.effort],-.18);ctx.lineWidth=th*.92;ctx.beginPath();ctx.arc(x,y,r,a0,a1);ctx.stroke();ctx.strokeStyle=HUES[s.effort];ctx.lineWidth=th*.66;ctx.beginPath();ctx.arc(x,y,r-th*.08,a0,a1);ctx.stroke();ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=th*.12;ctx.beginPath();ctx.arc(x,y,r-th*.22,a0+.01,a1-.01);ctx.stroke();});
-  // phase names outside the ring, once reached
-  if(!mobile)STAGES.forEach(s=>{if(m<s.from+.5)return;const a=ang((s.from+s.to)/2), rr=r+th*3.1;ctx.globalAlpha=k*clamp((m-s.from)/2);ctx.fillStyle='#2B2420';ctx.font=`400 ${Math.round(Math.max(14,r*.075))}px "DM Serif Display",serif`;ctx.textAlign=Math.cos(a)>.25?'left':Math.cos(a)<-.25?'right':'center';ctx.textBaseline='middle';ctx.fillText(s.n,x+Math.cos(a)*rr,y+Math.sin(a)*rr);ctx.globalAlpha=1;});
-  ctx.textAlign='left';ctx.textBaseline='alphabetic';
-  // the effort, traced inside the ring
-  const inner=r-th*1.1, span=r*.32;ctx.strokeStyle='rgba(43,36,32,.08)';ctx.lineWidth=1;[1,3,5].forEach(e=>{ctx.beginPath();ctx.arc(x,y,inner-span*(1-(e-1)/4),0,Math.PI*2);ctx.stroke();});
-  if(m>0){ctx.beginPath();const steps=Math.max(2,Math.round(m*(CLASS.shape==='intervals'?12:4)));for(let i=0;i<=steps;i++){const mm=m*i/steps, a=ang(mm), rr=inner-span*(1-(effortAt(mm)-1)/4);i?ctx.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr):ctx.moveTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr);}
-    ctx.strokeStyle=ACCENT;ctx.lineWidth=Math.max(1.5,r*.012);ctx.lineJoin='round';ctx.stroke();ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=Math.max(.6,r*.004);ctx.stroke();}
-  // the hand: where the class is now
-  const a=ang(m), hx=x+Math.cos(a)*r, hy=y+Math.sin(a)*r;ctx.save();ctx.shadowColor='rgba(60,45,30,.4)';ctx.shadowBlur=th*.5*DPR;ctx.shadowOffsetY=th*.18*DPR;const pg=ctx.createRadialGradient(hx-th*.22,hy-th*.25,0,hx,hy,th*.62);pg.addColorStop(0,'#FFFFFF');pg.addColorStop(.7,'#F3EEE6');pg.addColorStop(1,'#D8CFC2');ctx.fillStyle=pg;ctx.beginPath();ctx.arc(hx,hy,th*.62,0,7);ctx.fill();ctx.restore();ctx.strokeStyle=ACCENT;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(hx,hy,th*.62,0,7);ctx.stroke();}
-function orb(c,m,time,breath,done){const {x,y,r}=c;const i=Math.max(0,STAGES.findIndex(s=>m<s.to));const s=STAGES[i<0?STAGES.length-1:i];
-  const base=r*.36, b=RM?0:breath, rr=base*(1+.14*b);
-  const hue=HUES[Math.round(clamp(effortAt(m),1,5))];
-  ctx.save();ctx.shadowColor='rgba(60,45,30,.35)';ctx.shadowBlur=rr*.25*DPR;ctx.shadowOffsetY=rr*.12*DPR;ctx.fillStyle=shade(hue,-.2);ctx.beginPath();ctx.arc(x,y,rr,0,7);ctx.fill();ctx.restore();
-  const g=ctx.createRadialGradient(x-rr*.42,y-rr*.48,rr*.04,x-rr*.1,y-rr*.1,rr*1.05);g.addColorStop(0,'#FFFDFA');g.addColorStop(.35,hue);g.addColorStop(1,shade(hue,-.28));ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,rr,0,7);ctx.fill();
-  {const rim=ctx.createRadialGradient(x,y,rr*.75,x,y,rr);rim.addColorStop(0,'rgba(255,255,255,0)');rim.addColorStop(1,'rgba(255,255,255,.22)');ctx.fillStyle=rim;ctx.beginPath();ctx.arc(x,y,rr,0,7);ctx.fill();ctx.save();ctx.beginPath();ctx.arc(x,y,rr,0,7);ctx.clip();ctx.fillStyle='rgba(255,255,255,.55)';ctx.beginPath();ctx.ellipse(x-rr*.38,y-rr*.5,rr*.2,rr*.1,-.6,0,7);ctx.fill();ctx.fillStyle='rgba(255,255,255,.18)';ctx.beginPath();ctx.ellipse(x+rr*.35,y+rr*.55,rr*.3,rr*.08,-.5,0,7);ctx.fill();ctx.restore();}
-  ctx.strokeStyle=`{{A:122,62,90}}${(.12+.1*b).toFixed(3)})`;ctx.lineWidth=1.5;for(let k=1;k<=2;k++){ctx.beginPath();ctx.arc(x,y,rr*(1+.12*k+.05*b),0,7);ctx.stroke();}
-  const light=effortAt(m)>=3.5;ctx.fillStyle=light?'#FFFDFA':'#2B2420';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`400 ${Math.round(base*.62)}px "DM Serif Display",serif`;ctx.fillText(String(Math.floor(m)),x,y-base*.05);
-  ctx.font=`500 ${Math.max(10,Math.round(base*.13))}px "Sometype Mono",monospace`;ctx.fillStyle=light?'rgba(255,253,250,.75)':'rgba(43,36,32,.6)';ctx.fillText(done?CLASS.done.toUpperCase():'MIN',x,y+base*.38,base*1.6);ctx.textAlign='left';ctx.textBaseline='alphabetic';}
-function shade(hex,k){const n=parseInt(hex.slice(1),16);const f=v=>Math.round(k>0?v+(255-v)*k:v*(1+k));return`rgb(${f(n>>16&255)},${f(n>>8&255)},${f(n&255)})`;}
+/* ============ THE FILM ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint'), orbw=$('#orbw'), orb=$('#orb'), say=$('#say');
+const STILL=/[?&]still\b/.test(location.search), FLAT=RM||STILL;
+if(FLAT)document.documentElement.classList.add('flat');
+{{$.film.runtime|raw}}
+const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fx:.62,fy:.5});
+let inFrame=false;try{inFrame=window.self!==window.top}catch(e){inFrame=true}
+let AUTO=inFrame&&scrollY<1&&!FLAT;
+if(AUTO)addEventListener('scroll',()=>{if(AUTO&&scrollY>=1){AUTO=false;film.poke()}},{passive:true});
 
-/* ============ HUD ============ */
+/* ============ THE HOUR ============ */
+// an arc a phase round the orb, from the minute it starts to the minute it ends, with a small gap between
+const L=CLASS.length||60, R=48, pt=a=>[50+R*Math.sin(a),50-R*Math.cos(a)];
+$('#arcs').innerHTML=STAGES.map(s=>{const a0=s.from/L*Math.PI*2+.05, a1=Math.max(a0+.01,s.to/L*Math.PI*2-.05), [x0,y0]=pt(a0), [x1,y1]=pt(a1);
+  return `<path class="ph" d="M${x0.toFixed(2)} ${y0.toFixed(2)}A${R} ${R} 0 ${a1-a0>Math.PI?1:0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}"/>`;}).join('');
+const arcs=[...$('#arcs').children], bead=$('#bead'), bars=[...$('#eff').children];
 let shown=-1;
-function hud(p,m,breath){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});const s=STAGES[idx];
-  if(idx!==shown){shown=idx;$('#pNum').textContent=idx+1;$('#pTitle').textContent=s.n;$('#pText').textContent=s.c;$('#pMin').textContent=`${s.from}–${s.to} min`;$('#pBreath').textContent=s.cue;}
-  $('#pDot').style.setProperty('--b',(1+.5*breath).toFixed(2));
-  $('#sMin').innerHTML=`${Math.floor(m)}<small>/ ${CLASS.length}</small>`;
-  let br=0;for(const st of STAGES){if(m<=st.from)break;br+=(Math.min(m,st.to)-st.from)*st.bpm;}$('#sBreaths').textContent=Math.round(br);
-  $('#sEffort').textContent=m>0?EFFORT[Math.round(clamp(effortAt(m),1,5))]:'—';$('#sPeople').textContent=CLASS.size;}
 
 /* ============ FRAME ============ */
-const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
 let cur=0;const t0=performance.now();
-function frame(p,time){ctx.setTransform(1,0,0,1,0,0);if(!FLOOR||FLOOR.width!==cv.width||FLOOR.height!==cv.height){buildFloor();buildDisc(Math.max(LA.r,LB.r));}ctx.drawImage(FLOOR,0,0);ctx.setTransform(DPR,0,0,DPR,0,0);
-  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), mv=sm(mobile?k:seg(p,.05,.14));
-  const c={x:lerp(LA.x,LB.x,mv),y:lerp(LA.y,LB.y,mv),r:lerp(LA.r,LB.r,mv)};
-  const m=minuteAt(p);const i=Math.max(0,STAGES.findIndex(s=>m<s.to));const bpm=STAGES[i].bpm||8;
-  const breath=RM?0:Math.sin(time*Math.PI*2*bpm/60);
-  ctx.globalAlpha=mobile?.25+.75*k:1;ring(c,m,time,mobile?1:1);orb(c,m,time,breath,p>=.995);ctx.globalAlpha=1;
-  copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
-  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,m,breath);}
 function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
-// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
-// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+const mobile=()=>innerWidth<820;
+function frame(p,time){
+  const P=FLAT?1:p;
+  film.draw(FLAT?1:AUTO?(time/Math.max(4,film.seconds()))%1:clamp(seg(P,.02,.9)),time);
+  const k=mobile()?seg(p,.01,.05):seg(p,.06,.12);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);const on=FLAT||k>=1;orbw.classList.toggle('on',on);say.classList.toggle('on',on);
+  let idx=0;STAGES.forEach((s,i)=>{if(P>=s.w[0])idx=i;});const s=STAGES[idx];
+  if(idx!==shown){shown=idx;$('#pNum').textContent=idx+1;$('#pTitle').textContent=s.n;$('#pText').textContent=s.c;$('#pMin').textContent=`${s.from}–${s.to} min`;$('#oSay').textContent=s.cue;}
+  const m=P>=1?L:lerp(s.from,s.to,seg(P,s.w[0],s.w[1]));
+  arcs.forEach((el,i)=>{el.classList.toggle('done',i<idx);el.classList.toggle('now',i===idx);});
+  const a=m/L*Math.PI*2, [bx,by]=pt(a);bead.setAttribute('cx',bx.toFixed(2));bead.setAttribute('cy',by.toFixed(2));
+  // the orb breathes in real time at the phase's breaths a minute: in on the swell, out as it settles
+  const bpm=Math.max(3,s.bpm||6), ph=RM?0:(time*bpm/60)%1, swell=ph<.4?sm(ph/.4):1-sm((ph-.4)/.6);
+  orb.style.setProperty('--b',(FLAT?.92:.78+.2*swell).toFixed(3));$('#oIn').textContent=P>=1&&CLASS.done?CLASS.done:FLAT?`${bpm} breaths a minute`:ph<.4?'Breathe in':'Breathe out';
+  $('#sMin').innerHTML=`${Math.floor(m)}<small>/ ${L}</small>`;
+  let br=0;for(const st of STAGES){if(m<=st.from)break;br+=(Math.min(m,st.to)-st.from)*st.bpm;}$('#sBreaths').textContent=Math.round(br);
+  const e=m>0?Math.round(clamp(effortAt(m),1,5)):0;bars.forEach((b,i)=>b.classList.toggle('on',i<e));$('#sEffort').textContent=e?EFFORT[e]:'—';
+}
 let gLast=-1e9,gForce=90;
-addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
-function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
-  if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
+addEventListener('resize',()=>{gForce=30;film.size();});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+// the orb keeps breathing while the page is still, so the frame is drawn every time while the hero is on screen
+function gate(now){if(AUTO)return false;const r=$('#stage').getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+  if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM)return true;if(now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
 function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
-layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
-if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
 requestAnimationFrame(loop);
 })();
 </script>
@@ -464,4 +432,14 @@ week();calc();
 })();
 </script>
 
+<script>
+/* the title arrives word by word */
+(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;let k=0;
+ // each word in its own clipped box; a block inside the title (a second line) keeps its place and has its words split too
+ const unit=(box,el)=>{const w=document.createElement('span');w.className='w';el.style.animationDelay=(150+k++*80)+'ms';w.appendChild(el);box.appendChild(w)};
+ const split=box=>{const parts=[...box.childNodes],blk=parts.map(n=>n.nodeType===1&&getComputedStyle(n).display==='block');box.textContent='';
+  parts.forEach((n,j)=>{if(n.nodeType===3)n.textContent.split(/(\s+)/).forEach(x=>{if(!x)return;if(/^\s+$/.test(x)){box.appendChild(document.createTextNode(' '));return}const i=document.createElement('i');i.textContent=x;unit(box,i)});
+   else if(n.nodeType===1){if(blk[j]){box.appendChild(n);if(n.children.length===0)split(n);return}const i=document.createElement('i');i.appendChild(n);unit(box,i)}});};
+ split(h);h.classList.add('split')})();
+</script>
 </body></html>
