@@ -1,12 +1,13 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>{{business.name}}</title>
+<meta name="description" content="{{hero.lede|attr}}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gilda+Display&family=Karla:wght@400;500;600;700&family=Azeret+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* Layout: a wedding and event venue. One pinned plan of the room from above through the day as you scroll (empty,
-   set for the ceremony, the guests in, the turnaround where every chair moves to a table, the wedding breakfast, the
-   evening with a dance floor and lights); then what a couple needs: the spaces and how many each holds, a price for
+/* Layout: a wedding and event venue. The real room through the day as you scroll (the venue's own video or photos),
+   a string of festoon lights across the top coming on bulb by bulb until the evening, and the order of the day along
+   the bottom with the time running; then what a couple needs: the spaces and how many each holds, a price for
    their date and numbers, and the shape of the day. */
 :root{
   color-scheme:light;
@@ -58,45 +59,71 @@ p{margin:0}
 @media (max-width:980px){.nav ul{display:none}.nav .call{margin-left:auto}}
 @media (max-width:560px){.nav .call{display:none}.nav .btn{margin-left:auto}.brand{font-size:23px}}
 
-/* hero: the plan */
+/* hero: the real room, festoon lights across the top, the order of the day along the bottom */
 .hero{position:relative;height:560vh}
 .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;background:var(--ivory)}
-#plan{position:absolute;inset:0;width:100%;height:100%;display:block}
-.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 108px);max-width:520px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
-.hero-copy::before{content:"";position:absolute;z-index:-1;inset:-110px -150px -90px calc(-1 * var(--gut) - 60px);background:radial-gradient(closest-side,rgba(248,245,238,.96),rgba(248,245,238,.8) 55%,rgba(248,245,238,0));pointer-events:none}
-.hero h1{font-size:clamp(3rem,min(6.4vw,9.6vh),6.4rem)}
+.stage .poster,#film{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.stage .poster{object-fit:cover}
+.veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(248,245,238,.94) 0%,rgba(248,245,238,.72) 32%,rgba(248,245,238,0) 54%)}
+.low{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(0deg,rgba(26,22,14,.72),rgba(26,22,14,0) 36%)}
+.glow{position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(90% 50% at 50% 0%,rgba(255,196,110,.45),rgba(255,196,110,0) 70%);mix-blend-mode:screen;opacity:var(--eve,0)}
+.hero-copy{position:absolute;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 160px);max-width:560px;z-index:3;display:grid;gap:18px;will-change:transform,opacity}
+.hero h1{font-size:clamp(2.8rem,min(5.6vw,8.8vh),5.4rem)}
 .hero h1 em{font-style:normal;display:block;color:var(--accent-text)}
-.lede{color:var(--ink-2);max-width:42ch;font-size:clamp(16px,1.3vw,18px)}
-.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
-.card{position:absolute;z-index:4;left:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));width:min(420px,calc(100% - 2*var(--gut)));padding:16px 20px 18px;background:var(--sheet);border-radius:2px;box-shadow:0 22px 56px -30px rgba(36,38,31,.45),0 0 0 1px rgba(36,38,31,.06)}
-.card .row{display:flex;justify-content:space-between;gap:10px;font:400 11px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.card .clock{color:var(--accent-text)}
-.card h3{font-size:clamp(30px,2.8vw,40px);margin-top:10px}
-.card p{color:var(--ink-2);font-size:15px;margin-top:6px;min-height:3.2em}
-.tally{position:absolute;z-index:4;right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0;min-width:300px;border-radius:2px;background:var(--sheet);box-shadow:0 22px 56px -30px rgba(36,38,31,.45),0 0 0 1px rgba(36,38,31,.06);overflow:hidden}
-.tally div{padding:12px 18px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:0}
-.tally div:nth-child(2n){border-right:0}
-.tally div:nth-child(n+3){border-bottom:0}
-.tally dt{font:400 10px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.tally dd{margin:6px 0 0;font:600 26px/1 var(--f-body);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
-.hint{position:absolute;z-index:4;left:50%;bottom:calc(170px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;pointer-events:none;white-space:nowrap}
-.hint i{display:block;width:1px;height:26px;background:linear-gradient(var(--ink-2),transparent);animation:cue 1.6s ease-in-out infinite}
+.lede{color:var(--ink-2);max-width:44ch;font-size:clamp(16px,1.3vw,18px)}
+.hero .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.split .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.22em;margin-bottom:-.14em}
+.split .w{padding-right:.1em;margin-right:-.1em}
+.split .w>i{display:inline-block;font-style:normal;animation:wrise .9s cubic-bezier(.16,1,.3,1) both}
+@keyframes wrise{from{transform:translateY(108%)}}
+.hint{position:absolute;z-index:4;left:var(--gut);bottom:calc(150px + env(safe-area-inset-bottom,0px));font:400 11px var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:10px;pointer-events:none}
+.hint i{display:block;width:1px;height:22px;background:linear-gradient(var(--muted),transparent);animation:cue 1.6s ease-in-out infinite}
 @keyframes cue{0%{transform:scaleY(.2);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}100%{transform:scaleY(.2);transform-origin:bottom}}
-/* short laptop screens: a little less type so the copy clears the card */
-@media (min-width:821px) and (max-height:780px){.hero-copy{gap:14px}.hero h1{font-size:clamp(3rem,min(6.4vw,8.8vh),6.4rem)}.lede{font-size:15px}}
+/* the festoon: one string across, a bulb lit for every stretch of the day, all of them twinkling by the evening */
+.fest{position:absolute;z-index:2;left:-2%;right:-2%;top:calc(env(safe-area-inset-top,0px) + 54px);height:clamp(90px,12vh,130px);pointer-events:none}
+.fest svg{display:block;width:100%;height:100%;overflow:visible}
+.fest .wire{fill:none;stroke:#2a241b;stroke-width:1.6;vector-effect:non-scaling-stroke}
+.fest .cap{fill:#2a241b}
+.fest .bl{fill:rgba(255,244,220,.55);stroke:rgba(60,50,30,.45);stroke-width:.6;vector-effect:non-scaling-stroke;transition:fill .4s}
+.fest .bl.on{fill:#FFE2A3;filter:drop-shadow(0 0 6px rgba(255,200,110,.95)) drop-shadow(0 0 16px rgba(255,180,80,.7))}
+.fest .bl.tw{animation:tw 1.6s ease-in-out infinite}
+.flat .fest .bl.tw{animation:none}
+@keyframes tw{50%{fill:#FFF0C8}}
+/* the step in hand */
+.now{position:absolute;z-index:3;left:var(--gut);top:calc(env(safe-area-inset-top,0px) + 196px);max-width:min(440px,38vw);opacity:0;transition:opacity .45s}
+.now.on{opacity:1}
+.now h3{font:400 clamp(40px,4.6vw,66px)/1 var(--f-display);color:var(--ink)}
+.now p{color:var(--ink-2);margin-top:12px;font-size:17px;max-width:34ch;min-height:4.7em}
+.now.ev h3{color:#FFF7E6;text-shadow:0 2px 18px rgba(0,0,0,.5)}.now.ev p{color:rgba(255,247,230,.9);text-shadow:0 1px 10px rgba(0,0,0,.6)}
+/* the order of the day: each moment's time and name, the one in hand lit, the clock running above */
+.ood{position:absolute;z-index:4;left:var(--gut);right:var(--gut);bottom:calc(22px + env(safe-area-inset-bottom,0px));color:#FBF7EE;opacity:0;transition:opacity .45s}
+.ood.on{opacity:1}
+.ood .top{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin-bottom:12px}
+.ood .top b{font:400 clamp(34px,3.4vw,50px)/1 var(--f-display);font-variant-numeric:tabular-nums}
+.ood .top span{font:400 11px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;opacity:.8}
+.ood ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(var(--n,6),minmax(0,1fr));border-top:1px solid rgba(251,247,238,.35)}
+.ood li{position:relative;padding:12px 10px 0 0;opacity:.5;transition:opacity .4s}
+.ood li::before{content:"";position:absolute;left:0;top:-1px;height:2px;width:calc(var(--f,0) * 100%);background:var(--gold)}
+.ood li.done,.ood li.now2{opacity:1}
+.ood li time{display:block;font:400 11px var(--f-mono);letter-spacing:.1em;color:var(--gold)}
+.ood li b{display:block;margin-top:5px;font:400 clamp(15px,1.3vw,19px)/1.15 var(--f-display)}
+.ood dl{display:flex;gap:22px;margin:0}
+.ood dt{font:400 9.5px/1.2 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;opacity:.7}
+.ood dd{margin:3px 0 0;font:400 20px/1 var(--f-display);font-variant-numeric:tabular-nums}
 @media (max-width:820px){
-  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 86px);max-width:none;right:var(--gut);gap:14px}
+  .veil{background:linear-gradient(180deg,rgba(248,245,238,.94) 0%,rgba(248,245,238,.66) 34%,rgba(248,245,238,0) 50%)}
+  .low{background:linear-gradient(0deg,rgba(26,22,14,.8),rgba(26,22,14,0) 50%)}
+  .hero-copy{top:calc(env(safe-area-inset-top,0px) + 140px);max-width:none;right:var(--gut);gap:14px}
   .hero .acts{display:none}
-  .tally{left:var(--gut);right:var(--gut);min-width:0;grid-template-columns:minmax(0,.9fr) minmax(0,.85fr) minmax(0,.95fr) minmax(0,1.3fr);bottom:calc(204px + env(safe-area-inset-bottom,0px))}
-  .tally div{padding:9px 10px;border-bottom:0}
-  .tally div:nth-child(2n){border-right:1px solid var(--line)}
-  .tally div:last-child{border-right:0}
-  .tally dt{font-size:8px;letter-spacing:.03em}
-  .tally dd{font-size:clamp(16px,4.6vw,22px)}
-  .tally dd#kLast{white-space:normal;overflow-wrap:anywhere;line-height:1.05}
-  .card{bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:14px 18px}
-  .card p{font-size:14px;min-height:4.4em}
   .hint{display:none}
+  .fest{height:70px;top:calc(env(safe-area-inset-top,0px) + 50px)}
+  .now{top:calc(env(safe-area-inset-top,0px) + 140px);right:var(--gut);max-width:none}
+  .now h3{font-size:36px}
+  .now p{font-size:14.5px;min-height:3em}
+  .ood ol{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .ood li b{font-size:14px}
+  .ood .top{flex-wrap:wrap}
+  .ood dl{gap:12px;width:100%;justify-content:space-between}
 }
 
 /* sections */
@@ -187,9 +214,14 @@ footer{background:var(--ink);color:var(--ivory);padding:clamp(70px,9vw,120px) va
 </nav>
 
 <main>
-<section class="hero" id="top" aria-label="The barn through a wedding day, scroll to run it">
+<section class="hero" id="top" aria-label="The room through a wedding day; scroll to run it">
   <div class="stage" id="stage">
-    <canvas id="plan" aria-hidden="true"></canvas>
+{{#if $.film.poster}}    <img class="poster" src="{{$.film.poster|attr}}" alt="" aria-hidden="true">
+{{/if}}    <canvas id="film" role="img" aria-label="{{brand.name|attr}} through a wedding day, from the empty room to the evening"></canvas>
+    <div class="glow" id="glow" aria-hidden="true"></div>
+    <div class="veil" id="veil" aria-hidden="true"></div>
+    <div class="low" aria-hidden="true"></div>
+    <div class="fest" id="fest" aria-hidden="true"><svg viewBox="0 0 1000 120" preserveAspectRatio="none" id="festSvg"></svg></div>
     <div class="hero-copy" id="heroCopy">
       <p class="eyebrow">{{hero.eyebrow}}</p>
       <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
@@ -197,16 +229,16 @@ footer{background:var(--ink);color:var(--ivory);padding:clamp(70px,9vw,120px) va
       <div class="acts"><a class="btn" href="#price">{{hero.cta}}</a><a class="btn ghost" href="#spaces">{{hero.cta2}}</a></div>
     </div>
     <div class="hint" id="hint"><i></i>{{hero.hint}}</div>
-    <dl class="tally" id="tally" aria-live="off">
-      <div><dt>{{count.labels.0}}</dt><dd id="kGuests">0</dd></div>
-      <div><dt>{{count.labels.1}}</dt><dd id="kTables">0</dd></div>
-      <div><dt>{{count.labels.2}}</dt><dd id="kCandles">0</dd></div>
-      <div><dt>{{count.labels.3}}</dt><dd id="kLast">—</dd></div>
-    </dl>
-    <div class="card" id="card" aria-live="polite">
-      <div class="row"><span><b id="gNum">1</b> of 6</span><span class="clock" id="gClock">{{$.clock0}}</span></div>
-      <h3 id="gTitle">{{stages.0.n}}</h3>
-      <p id="gText">{{stages.0.c}}</p>
+    <div class="now" id="now" aria-live="polite"><h3 id="gTitle">{{stages.0.n}}</h3><p id="gText">{{stages.0.c}}</p></div>
+    <div class="ood" id="ood">
+      <div class="top"><span><span id="gNum">1</span> of 6 · the order of the day</span>
+        <dl id="tally" aria-live="off">
+          <div><dt>{{count.labels.0}}</dt><dd id="kGuests">0</dd></div>
+          <div><dt>{{count.labels.1}}</dt><dd id="kTables">0</dd></div>
+          <div><dt>{{count.labels.2}}</dt><dd id="kCandles">0</dd></div>
+          <div><dt>{{count.labels.3}}</dt><dd id="kLast">—</dd></div>
+        </dl><b id="gClock">{{$.clock0}}</b></div>
+      <ol id="oodList"></ol>
     </div>
   </div>
 </section>
@@ -366,111 +398,58 @@ const VENUE={{$.venueJs|raw}};
 const COUNT={{$.countJs|raw}};
 const H12={{$.h12}};
 
-/* ============ GEOMETRY ============ */
-const cv=$('#plan'), ctx=cv.getContext('2d');
-let W=0,H=0,DPR=1,mobile=false,LA=null,LB=null;
-// the plan with its courtyard is 2.5 long and 1.7 wide; on a phone it stands on end
-function fit(ax,ay,up){const w=ax[1]-ax[0], h=ay[1]-ay[0];const s=up?Math.min(w/1.7,h/2.5):Math.min(w/2.5,h/1.7);return{s,x:(ax[0]+ax[1])/2,y:(ay[0]+ay[1])/2};}
-function layout(){W=cv.clientWidth;H=cv.clientHeight;DPR=Math.min(devicePixelRatio||1,TOUCH?1.5:2);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);mobile=W<820;
-  const top=Math.max(70,H*.1), tl=$('#tally').getBoundingClientRect(), cd=$('#card').getBoundingClientRect(), stg=$('#stage').getBoundingClientRect();
-  if(mobile){LA=LB=fit([W*.03,W*.97],[top,tl.top-stg.top-10],true);}
-  else{const cr=copy.offsetLeft+copy.offsetWidth, cb=copy.offsetTop+copy.offsetHeight, low=Math.min(tl.top,cd.top)-stg.top;
-    const side=fit([cr+20,W*.97],[H*.1,low-12]), under=fit([W*.05,W*.95],[cb+20,low-12]);
-    LA=side.s>=under.s*.8?side:under;LB=fit([W*.06,W*.94],[top,low-14]);}}
+/* ============ THE FILM ============ */
+const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint'), now=$('#now'), ood=$('#ood'), veil=$('#veil');
+const STILL=/[?&]still\b/.test(location.search), FLAT=RM||STILL;
+if(FLAT)document.documentElement.classList.add('flat');
+{{$.film.runtime|raw}}
+const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fx:.55,fy:.5});
+let inFrame=false;try{inFrame=window.self!==window.top}catch(e){inFrame=true}
+let AUTO=inFrame&&scrollY<1&&!FLAT;
+if(AUTO)addEventListener('scroll',()=>{if(AUTO&&scrollY>=1){AUTO=false;film.poke()}},{passive:true});
 
-/* ============ WHERE EVERYONE SITS ============ */
-const N=Math.min(VENUE.guests,150), SEATS=VENUE.seats, T=Math.ceil(N/SEATS);
-const ROWS=Math.ceil(N/10);
-const ROWSEAT=[...Array(N)].map((_,i)=>{const r=Math.floor(i/10), j=i%10, side=j<5?-1:1;return[.6-r*Math.min(.1,1.35/Math.max(1,ROWS)),side*(.1+(j%5)*.075),0];});
-const C=Math.ceil(T/3);
-const TABLES=[...Array(T)].map((_,t)=>[((C-1)/2-Math.floor(t/3))*.3,[-.32,0,.32][t%3]]);
-// the tables that make way for the dance floor
-const CLEAR=TABLES.map(([x,y])=>y===0&&Math.abs(x)<.31);
-const TR=SEATS>8?.075:.062, CR=TR+.03;
-const TABSEAT=[...Array(N)].map((_,i)=>{const t=Math.floor(i/SEATS), k=i%SEATS, a=k/SEATS*Math.PI*2, [x,y]=TABLES[t];return[x+Math.cos(a)*CR,y+Math.sin(a)*CR,a+Math.PI];});
-const G=rng(17);const DRESS=[...Array(N)].map(()=>({col:OUTFITS[Math.floor(G()*OUTFITS.length)],hair:['#3A2A22','#6B4A2E','#C9A46A','#1E1A18','#8A8A8A'][Math.floor(G()*5)],t:G(),door:G()<.5?-1:1,dance:G()<.55}));
-const PETALS=[...Array(60)].map(()=>[lerp(-.7,.8,G()),(G()-.5)*.07,Math.floor(G()*3),G()*6.28]);
-const BULBS=[];for(let i=0;i<5;i++){const x0=-.85+i*.42;for(let k=0;k<=10;k++){const t=k/10;BULBS.push([lerp(x0,x0+(i%2?-.2:.2),t),lerp(-.52,.52,t)]);}}
-
-/* ============ DRAWING ============ */
-function plan(c,f,time){const night=sm(seg(f[5],0,.35)), K=VENUE;
-  room(c,K.kind,night);
-  // the front: a sweetheart table for two at the far end once the room is turned
-  const arch=sm(seg(f[1],.6,1))*(1-sm(seg(f[3],.1,.3)));
-  if(arch>0){c.save();c.globalAlpha*=arch;for(let i=0;i<14;i++){const y=lerp(-.17,.17,i/13), wob=Math.sin(i*1.7)*.012;c.fillStyle='#6F8A5B';c.beginPath();c.ellipse(.88+wob,y,.022,.012,i,0,7);c.fill();c.fillStyle=K.flowers[i%K.flowers.length];c.beginPath();c.arc(.88-wob*.6,y,.012,0,7);c.fill();}c.restore();}
-  const run=sm(seg(f[1],.05,.5))*(1-sm(seg(f[3],0,.2)));if(run>0){c.save();c.fillStyle=K.linen;c.strokeStyle='rgba(0,0,0,.08)';c.lineWidth=.003;const x0=lerp(.84,-.72,run);c.beginPath();c.rect(x0,-.045,.84-x0,.09);c.fill();c.stroke();c.fillStyle=shade(K.linen,-.12);c.beginPath();c.ellipse(x0,0,.012,.05,0,0,7);c.fill();c.restore();}
-  const sun=sm(seg(f[2],0,.3))*(1-sm(seg(f[3],.3,.6)));if(sun>0){c.save();c.globalAlpha*=sun;[[-1,-.55],[1,.55]].forEach(([s2,y])=>{const g=c.createLinearGradient(0,y,0,y-s2*.5);g.addColorStop(0,'rgba(255,236,190,.75)');g.addColorStop(1,'rgba(255,236,190,0)');c.fillStyle=g;c.beginPath();c.moveTo(-.18,y);c.lineTo(.18,y);c.lineTo(.32,y-s2*.5);c.lineTo(-.32,y-s2*.5);c.closePath();c.fill();});c.restore();}
-  const pet=sm(seg(f[1],.5,.9))*(1-sm(seg(f[3],0,.25)));if(pet>0){c.save();c.globalAlpha*=pet*.8;PETALS.forEach(([x,y,ci,a])=>{c.fillStyle=K.flowers[ci];c.beginPath();c.ellipse(x,y,.007,.004,a,0,7);c.fill();});c.restore();}
-  // the turnaround: chairs travel from their rows to the tables
-  const turn=f[3], tables=sm(seg(turn,.2,.6)), dressed=sm(seg(f[4],0,.5)), clearMid=sm(seg(f[5],.15,.6));
-  TABLES.forEach(([x,y],t)=>{const gone=CLEAR[t]?clearMid:0;const k=tables*(1-gone);if(k<=0)return;linen(c,x,y,TR*k,shade(K.linen,-.06),1);if(dressed>0)linen(c,x,y,(TR+.01)*k,K.linen,dressed);});
-  for(let i=0;i<N;i++){const app=sm(seg(f[1],(i/N)*.55,(i/N)*.55+.3));if(app<=0)continue;const ch=sm(seg(turn,.25+(i%SEATS)/SEATS*.15+Math.floor(i/SEATS)/T*.2,.5+(i%SEATS)/SEATS*.15+Math.floor(i/SEATS)/T*.2));
-    const A=ROWSEAT[i], B=TABSEAT[i];const t=Math.floor(i/SEATS), gone=CLEAR[t]?clearMid:0;
-    const x=lerp(A[0],B[0],ch), y=lerp(A[1],B[1],ch)-Math.sin(ch*Math.PI)*.06, a=lerp(A[2],B[2],ch);c.save();c.globalAlpha*=app*(1-gone);chair(c,x,y,a,K.chair);c.restore();}
-  // place settings, flowers and candles on the tables
-  let candles=0;if(dressed>0)TABLES.forEach(([x,y],t)=>{const gone=CLEAR[t]?clearMid:0;if(gone>=1)return;c.save();c.globalAlpha*=1-gone;
-    for(let k=0;k<SEATS;k++){const a=k/SEATS*Math.PI*2;c.fillStyle='rgba(255,255,255,.95)';c.strokeStyle='rgba(0,0,0,.08)';c.lineWidth=.002;c.beginPath();c.arc(x+Math.cos(a)*(TR-.016),y+Math.sin(a)*(TR-.016),.011*dressed,0,7);c.fill();c.stroke();}
-    centre(c,x,y,K.flowers,sm(seg(f[4],.2+t/T*.3,.5+t/T*.3)));const ck=sm(seg(f[4],.35+t/T*.3,.65+t/T*.3));[[.035,.0],[-.035,0],[0,.035],[0,-.035]].forEach(([dx,dy])=>{candle(c,x+dx,y+dy,ck,Math.max(.25,night),time);});candles+=Math.round(4*ck);c.restore();});
-  // the dance floor
-  const df=sm(seg(f[5],.4,.8));if(df>0){c.save();c.globalAlpha*=df;for(let i=0;i<7;i++)for(let j=0;j<4;j++){const x0=-.315+i*.09, y0=-.18+j*.09, alt=(i+j)%2;c.fillStyle=alt?'#7A5C44':'#8E6C50';c.fillRect(x0,y0,.09,.09);c.strokeStyle='rgba(40,20,5,.18)';c.lineWidth=.0015;for(let k=1;k<5;k++){c.beginPath();if(alt){c.moveTo(x0+k*.018,y0);c.lineTo(x0+k*.018,y0+.09);}else{c.moveTo(x0,y0+k*.018);c.lineTo(x0+.09,y0+k*.018);}c.stroke();}}
-    {const sg=c.createLinearGradient(-.315,-.18,.315,.18);sg.addColorStop(0,'rgba(255,240,220,.15)');sg.addColorStop(.5,'rgba(255,240,220,0)');sg.addColorStop(1,'rgba(0,0,0,.12)');c.fillStyle=sg;c.fillRect(-.315,-.18,.63,.36);}c.strokeStyle='rgba(60,40,25,.5)';c.lineWidth=.006;c.strokeRect(-.315,-.18,.63,.36);c.restore();}
-  // guests: in through the doors to their seats, out for drinks, back for dinner, onto the floor
-  const inK=f[2], outK=sm(seg(turn,0,.25)), backK=sm(seg(f[4],.4,.9));
-  for(let i=0;i<N;i++){const L=DRESS[i];let x,y,a,show=0;
-    const arrive=sm(seg(inK,L.t*.7,L.t*.7+.3));
-    if(arrive>0&&outK<1){const A=ROWSEAT[i];const dx=0, dy=L.door*.75;const k=arrive;x=lerp(dx,A[0],k);y=lerp(dy,A[1],k);if(k<1){x=lerp(dx,A[0],sm(seg(k,.4,1)));y=lerp(dy,A[1],sm(seg(k,0,.6)));}a=k<1?Math.atan2(A[1]-dy,A[0]-dx):0;show=Math.min(1,k*3)*(1-outK);if(outK>0){y=lerp(y,L.door*.75,outK);x=lerp(x,0,outK);}}
-    if(backK>0){const B=TABSEAT[i];x=B[0];y=B[1];a=B[2];show=backK;const t=Math.floor(i/SEATS), gone=CLEAR[t];
-      if(df>0&&(L.dance||gone)){const g=rng(i*7+3);const tx=-.28+g()*.56+(RM?0:Math.sin(time*2+i)*.01), ty=-.15+g()*.3+(RM?0:Math.cos(time*2.3+i)*.01);x=lerp(x,tx,df);y=lerp(y,ty,df);a=lerp(a,g()*6.28,df);}}
-    if(show>0){c.save();c.globalAlpha*=show;person(c,x,y,a,L.col,L.hair);c.restore();}}
-  // the couple: at the arch, at their table, then the first dance
-  const two=sm(seg(f[3],.5,.9))*(1-df);if(two>0){c.save();c.globalAlpha*=two;c.fillStyle=VENUE.linen;c.strokeStyle='rgba(0,0,0,.1)';c.lineWidth=.003;c.beginPath();c.roundRect(.86,-.07,.06,.14,.01);c.fill();c.stroke();centre(c,.89,0,VENUE.flowers,.8);c.restore();}
-  const cp=sm(seg(f[2],.75,1));if(cp>0){c.save();c.globalAlpha*=cp;let cx=.82,cy=0;if(f[3]>0){cx=lerp(.82,.8,sm(f[3]));}if(df>0){cx=lerp(cx,0,df);cy=0;}c.translate(cx,cy);c.scale(1.5,1.5);c.translate(-cx,-cy);
-    const spin=df>0&&!RM?time*.8:0;const ox=Math.cos(spin)*.016, oy=Math.sin(spin)*.016;c.fillStyle='#FFFFFF';c.strokeStyle='rgba(0,0,0,.15)';c.lineWidth=.003;c.beginPath();c.ellipse(cx+ox,cy-.02+oy,.02,.026,0,0,7);c.fill();c.stroke();c.fillStyle='#6B4A2E';c.beginPath();c.arc(cx+ox,cy-.02+oy,.009,0,7);c.fill();
-    person(c,cx-ox,cy+.022-oy,0,'#2E3A4C','#3A2A22');c.restore();}
-  beams(c,K.kind);
-  // evening: the room goes dark and warm, lights strung across
-  if(night>0){c.save();c.globalAlpha*=night*.82;c.fillStyle='#121726';c.beginPath();c.rect(-1.3,-.9,2.6,1.8);c.roundRect(-1,-.55,2,1.1,VENUE.kind==='marquee'?.5:VENUE.kind==='lawn'?.3:0);c.fill('evenodd');c.restore();
-    c.save();c.globalAlpha*=night*.32;c.fillStyle='#3A2412';c.beginPath();c.roundRect(-1,-.55,2,1.1,VENUE.kind==='marquee'?.5:VENUE.kind==='lawn'?.3:0);c.fill();c.restore();
-    if(df>0){c.save();c.globalAlpha*=night*df;const r=c.createRadialGradient(0,0,0,0,0,.45);r.addColorStop(0,'rgba(255,214,150,.35)');r.addColorStop(1,'rgba(255,214,150,0)');c.fillStyle=r;c.fillRect(-.5,-.5,1,1);c.restore();}
-    c.save();c.globalAlpha*=night;c.strokeStyle='rgba(40,36,30,.6)';c.lineWidth=.003;for(let i=0;i<5;i++){c.beginPath();BULBS.slice(i*11,i*11+11).forEach(([x,y],k)=>k?c.lineTo(x,y):c.moveTo(x,y));c.stroke();}
-    BULBS.forEach(([x,y],i)=>{const tw=RM?1:.8+.2*Math.sin(time*3+i);const r=c.createRadialGradient(x,y,0,x,y,.06);r.addColorStop(0,`rgba(255,214,140,${.5*tw})`);r.addColorStop(1,'rgba(255,214,140,0)');c.fillStyle=r;c.fillRect(x-.06,y-.06,.12,.12);c.fillStyle='#FFE7B0';c.beginPath();c.arc(x,y,.007,0,7);c.fill();});c.restore();}
-  return candles;}
-
-/* ============ HUD ============ */
+/* ============ THE DAY ============ */
 const CLOCK=[[0,10],[.14,11.5],[.3,13],[.46,14.5],[.64,16.5],[.82,19.5],[1,23.75]];
 function hourAt(p){for(let i=1;i<CLOCK.length;i++){if(p<=CLOCK[i][0]){const a=CLOCK[i-1],b=CLOCK[i];return lerp(a[1],b[1],(p-a[0])/(b[0]-a[0]));}}return 23.75;}
 function clock(h){const m=Math.round(h*60/5)*5, hh=Math.floor(m/60)%24, mm=String(m%60).padStart(2,'0');return H12?`${(hh+11)%12+1}:${mm} ${hh<12?'am':'pm'}`:`${String(hh).padStart(2,'0')}:${mm}`;}
+const N=Math.min(VENUE.guests,150), T=Math.ceil(N/VENUE.seats);
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+$('#oodList').innerHTML=STAGES.map(s=>`<li><time>${clock(hourAt(s.w[0]))}</time><b>${esc(s.n)}</b></li>`).join('');$('#oodList').style.setProperty('--n',STAGES.length);
+const items=[...$('#oodList').children];
+
+/* ============ THE FESTOON ============ */
+// one wire sagging across, a bulb hanging every so often along it
+const NB=20, sag=x=>28+52*Math.sin(Math.PI*x);
+let svg=`<path class="wire" d="M0 ${sag(0)} ${Array.from({length:41},(_,i)=>`L${i*25} ${sag(i/40).toFixed(1)}`).join(' ')}"/>`;
+for(let i=0;i<NB;i++){const x=(i+.5)/NB, y=sag(x);svg+=`<rect class="cap" x="${(x*1000-3).toFixed(1)}" y="${y.toFixed(1)}" width="6" height="7"/><ellipse class="bl" cx="${(x*1000).toFixed(1)}" cy="${(y+16).toFixed(1)}" rx="6.5" ry="9.5"/>`;}
+$('#festSvg').innerHTML=svg;
+const bulbs=[...document.querySelectorAll('#festSvg .bl')];
+const order=bulbs.map((_,i)=>i).sort((a,b)=>((a*7)%NB)-((b*7)%NB));   // the bulbs come on in a scattered order, not left to right
 let shown=-1;
-function hud(p,f,candles){let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
-  if(idx!==shown){shown=idx;$('#gNum').textContent=idx+1;$('#gTitle').textContent=STAGES[idx].n;$('#gText').textContent=STAGES[idx].c;}
-  $('#gClock').textContent=clock(hourAt(p));$('#kGuests').textContent=Math.round(VENUE.guests*sm(f[2]));$('#kTables').textContent=Math.round(T*sm(seg(f[3],.2,.6)));
-  $('#kCandles').textContent=Math.round(COUNT.candles*sm(seg(f[4],.35,.95)));$('#kLast').textContent=p>=STAGES[5].w[0]?COUNT.last:'—';}
 
 /* ============ FRAME ============ */
-const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
 let cur=0;const t0=performance.now();
-function frame(p,time){ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#F8F5EE';ctx.fillRect(0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
-  const k=mobile?seg(p,.01,.05):seg(p,.06,.12), m=sm(mobile?k:seg(p,.05,.14));
-  const S=lerp(LA.s,LB.s,m), X=lerp(LA.x,LB.x,m), Y=lerp(LA.y,LB.y,m);
-  const f=STAGES.map(s=>seg(p,s.w[0],s.w[1]));
-  ctx.globalAlpha=mobile?.25+.75*k:1;
-  ctx.save();ctx.translate(X,Y);if(mobile)ctx.rotate(-Math.PI/2);ctx.scale(S,S);
-  ctx.save();ctx.shadowColor='rgba(36,38,31,.22)';ctx.shadowBlur=40;ctx.shadowOffsetY=14;ctx.fillStyle='#DCE3CF';ctx.beginPath();ctx.roundRect(-1.25,-.85,2.5,1.7,.04);ctx.fill();ctx.restore();
-  ctx.save();ctx.beginPath();ctx.roundRect(-1.25,-.85,2.5,1.7,.04);ctx.clip();const candles=plan(ctx,f,time);ctx.restore();
-  ctx.restore();ctx.globalAlpha=1;
-  copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
-  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);hud(p,f,candles);}
 function target(){const r=hero.getBoundingClientRect();return clamp(-r.top/(r.height-innerHeight));}
-// phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
-// hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
+const mobile=()=>innerWidth<820;
+function frame(p,time){
+  const P=FLAT?1:p, f=STAGES.map(s=>FLAT?1:seg(p,s.w[0],s.w[1]));
+  film.draw(FLAT?1:AUTO?(time/Math.max(4,film.seconds()))%1:clamp(seg(P,.02,.95)),time);
+  const k=mobile()?seg(p,.01,.05):seg(p,.06,.12);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);const on=FLAT||k>=1;now.classList.toggle('on',on);ood.classList.toggle('on',on);
+  let idx=0;STAGES.forEach((s,i)=>{if(P>=s.w[0])idx=i;});
+  if(idx!==shown){shown=idx;$('#gNum').textContent=idx+1;$('#gTitle').textContent=STAGES[idx].n;$('#gText').textContent=STAGES[idx].c;}
+  items.forEach((li,i)=>{li.classList.toggle('done',i<idx);li.classList.toggle('now2',i===idx);li.style.setProperty('--f',(i<idx?1:i===idx?f[i]:0).toFixed(3));});
+  // the evening: the veil over the left lifts, the room goes warm, the text turns light
+  const eve=sm(seg(P,STAGES[5].w[0]-.05,STAGES[5].w[0]+.08));hero.style.setProperty('--eve',eve.toFixed(3));veil.style.opacity=Math.max(1-k,1-eve).toFixed(3);now.classList.toggle('ev',eve>.5);
+  const lit=Math.round(NB*sm(seg(P,.04,STAGES[5].w[0]+.04)));bulbs.forEach((b,i)=>{const r=order.indexOf(i);b.classList.toggle('on',r<lit);b.classList.toggle('tw',eve>.5&&i%3===0);});
+  $('#gClock').textContent=clock(hourAt(P));$('#kGuests').textContent=Math.round(VENUE.guests*sm(f[2]));$('#kTables').textContent=Math.round(T*sm(seg(f[3],.2,.6)));
+  $('#kCandles').textContent=Math.round(COUNT.candles*sm(seg(f[4],.35,.95)));$('#kLast').textContent=P>=STAGES[5].w[0]?COUNT.last:'—';
+}
 let gLast=-1e9,gForce=90;
-addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
-function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+addEventListener('resize',()=>{gForce=30;film.size();});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){if(AUTO)return false;const r=$('#stage').getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
   if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
 function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-t0)/1000, t=target();cur=RM?t:cur+(t-cur)*.14;if(Math.abs(t-cur)<.0004)cur=t;frame(cur,RM?0:time);requestAnimationFrame(loop);}
-layout();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
-if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
 requestAnimationFrame(loop);
 })();
 </script>
@@ -544,4 +523,14 @@ let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(drawSpaces,
 })();
 </script>
 
+<script>
+/* the title arrives word by word */
+(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;let k=0;
+ // each word in its own clipped box; a block inside the title (a second line) keeps its place and has its words split too
+ const unit=(box,el)=>{const w=document.createElement('span');w.className='w';el.style.animationDelay=(150+k++*80)+'ms';w.appendChild(el);box.appendChild(w)};
+ const split=box=>{const parts=[...box.childNodes],blk=parts.map(n=>n.nodeType===1&&getComputedStyle(n).display==='block');box.textContent='';
+  parts.forEach((n,j)=>{if(n.nodeType===3)n.textContent.split(/(\s+)/).forEach(x=>{if(!x)return;if(/^\s+$/.test(x)){box.appendChild(document.createTextNode(' '));return}const i=document.createElement('i');i.textContent=x;unit(box,i)});
+   else if(n.nodeType===1){if(blk[j]){box.appendChild(n);if(n.children.length===0)split(n);return}const i=document.createElement('i');i.appendChild(n);unit(box,i)}});};
+ split(h);h.classList.add('split')})();
+</script>
 </body></html>
