@@ -2,6 +2,7 @@
 // rules about opening hours the schema alone can't express. Runs at build time only.
 'use strict';
 const { FILTERS } = require('../../engine/template');
+const film = require('../../engine/film');
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const hm = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
 const isTime = (s) => /^([01]\d|2[0-3]):[0-5]\d$/.test(s || '');
@@ -18,6 +19,7 @@ function derive(c) {
   const days = hours <= c.hours.sameDayMax ? 0 : Math.ceil(hours / c.hours.perDay) + (pk.cure ? 1 : 0);
   const js = FILTERS.js;
   return {
+    film: film.derive(c, null, [150, 210, 255]),
     // what the quote and ticket show before the page script recomputes them (the original shows the base price here)
     init: { price: fmt(pk.price), pkg: pk.name, size: sz.name, hours: `${hours} h`, days: days === 0 ? c.hours.sameDayLabel : days + (days > 1 ? ' days' : ' day') },
     logoLetter: c.business.short[0].toUpperCase(),
