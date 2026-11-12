@@ -1,5 +1,5 @@
 {
-  "about": "What a headphone brand may change in the ONDO design. Everything not listed here is protected: the drawn headphones, the live analyser hero (the synthesized beat, the spectrum field, the noise-cancelling demo and its 85 to 25 dB numbers), the EQ and its presets, the battery maths, the listening-room colours, layout, spacing, type scale, breakpoints and all interaction code.",
+  "about": "What a headphone brand may change in the ONDO design. Everything not listed here is protected: the filmed headphones, the live analyser hero (the synthesized beat, the spectrum field, the noise-cancelling demo and its 85 to 25 dB numbers), the EQ and its presets, the battery maths, the listening-room colours, layout, spacing, type scale, breakpoints and all interaction code.",
   "text": {
     "business.name": [
       3,
@@ -181,7 +181,7 @@
   },
   "rules": [
     "Text may not contain < > { } or line breaks.",
-    "The hero is three fixed chapters: the drivers playing a beat, a 3D spectrum of the frequency range, and noise cancelling taking an 85 dB cabin drone to 25 dB. hero.caps are their titles and lines, in that order.",
+    "The hero is three fixed chapters: the drivers playing a beat, the spectrum of the frequency range, and noise cancelling taking an 85 dB cabin drone to 25 dB. hero.caps are their titles and lines, in that order.",
     "Four colourways, each with eight headphone colours: shell, hi (lighter shell), lo (darker shell), pad, padHi (lighter pad), metal, metalLo (darker metal), label.",
     "battery: rated hours with ANC on, in Aware mode and with ANC off (the battery gauge reads up to 60 h)."
   ],
