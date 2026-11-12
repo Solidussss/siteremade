@@ -1,10 +1,12 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<meta name="description" content="{{hero.lede|attr}}">
 <title>{{business.name}}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* Layout: a working roofer's site. One pinned job site where a house is re-roofed in eight stages, then tools laid
+/* Layout, v5: the real house gets its new roof as you scroll (the roofer's video or photos, or the design's own take)
+   with the work order clipped beside it ticking off the eight stages, then tools laid
    out like paperwork on a site table: a damage check, an estimate, a materials board and an inspection booking. */
 :root{
   color-scheme:light;
@@ -106,6 +108,34 @@ p{margin:0}
   .hint{display:none}
 }
 
+/* v5: the real house (the roofer's own video or photos, or the design's take) gets its new roof as you scroll; the
+   work order is clipped to the right and ticks off each of the eight stages; the tally runs along the bottom */
+.stage .poster,#film{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.stage .poster{object-fit:cover}
+.shade{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(242,238,230,.9) 0%,rgba(242,238,230,.55) 30%,transparent 52%),linear-gradient(0deg,rgba(20,24,28,.55),transparent 30%)}
+.hero-copy::before{display:none}
+.ticket{left:auto;right:var(--gut);bottom:auto;top:50%;transform:translateY(-46%) rotate(1deg);width:min(330px,30vw);padding-top:22px;opacity:0;visibility:hidden;transition:opacity .45s,visibility .45s}
+.ticket.on{opacity:1;visibility:visible}
+.ticket::after{content:"";position:absolute;left:50%;top:-14px;width:90px;height:26px;margin-left:-45px;border-radius:5px;background:linear-gradient(#c9cfd6,#8f98a3);box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.ticks{grid-template-columns:1fr;gap:2px;margin-top:14px;padding-top:10px;border-top:1px dashed var(--paper-2)}
+.ticks li{height:auto;background:none;overflow:visible;display:flex;align-items:center;gap:10px;padding:4px 0;font:500 12.5px/1.2 var(--f-mono);color:var(--muted)}
+.ticks li::after{display:none}
+.ticks li i{position:relative;flex:none;width:16px;height:16px;border:1.5px solid currentColor;border-radius:3px}
+.ticks li i::after{content:"";position:absolute;left:3px;top:0;width:5px;height:9px;border:solid var(--hivis-deep);border-width:0 2.5px 2.5px 0;transform:rotate(45deg) scale(var(--f,0));transform-origin:50% 100%;transition:transform .25s}
+.ticks li.done{color:var(--ink)}
+.ticks li.done i{border-color:var(--ink)}
+.ticks li.done i::after{transform:rotate(45deg) scale(1)}
+.reads{left:var(--gut);right:var(--gut);bottom:calc(16px + env(safe-area-inset-bottom,0px));grid-template-columns:repeat(4,minmax(0,1fr));max-width:820px}
+.seeit{display:none!important}
+.split .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.08em}
+.split .w>i{display:inline-block;font-style:normal;animation:rise .9s cubic-bezier(.16,1,.3,1) both}
+@keyframes rise{from{transform:translateY(108%)}}
+@media (max-width:820px){
+  .shade{background:linear-gradient(180deg,rgba(242,238,230,.92) 0%,rgba(242,238,230,.4) 32%,transparent 46%,rgba(20,24,28,.5) 100%)}
+  .ticket{left:var(--gut);right:var(--gut);top:auto;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:none;width:auto}
+  .ticks{display:none}
+  .reads{bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+}
 /* sections */
 section.block{padding-block:clamp(80px,11vw,150px)}
 .head{display:grid;gap:14px;max-width:780px;margin-bottom:clamp(30px,4vw,52px)}
@@ -260,7 +290,10 @@ footer{background:var(--slate);color:var(--chalk);padding:clamp(60px,8vw,110px) 
 <main>
 <section class="hero" id="top" aria-label="A full re-roof in eight stages, scroll to run it">
   <div class="stage" id="stage">
-    <canvas id="site" aria-hidden="true"></canvas>
+{{#if $.film.poster}}    <img class="poster" src="{{$.film.poster|attr}}" alt="" aria-hidden="true">
+{{/if}}    <canvas id="film" role="img" aria-label="A house with a worn, mossy roof getting a new roof, start to finish"></canvas>
+    <div class="shade" aria-hidden="true"></div>
+    <canvas id="site" aria-hidden="true" style="visibility:hidden"></canvas>
     <div class="hero-copy" id="heroCopy">
       <p class="eyebrow">{{hero.eyebrow}}</p>
       <h1>{{hero.title}} <em>{{hero.titleEm}}</em></h1>
@@ -279,7 +312,9 @@ footer{background:var(--slate);color:var(--chalk);padding:clamp(60px,8vw,110px) 
       <div class="row"><span>Job {{job.ref}} · Stage <b id="tNum">1</b> of 8</span><span class="stamp" id="tStamp">On site</span></div>
       <h3 id="tTitle">{{stages.0.n}}</h3>
       <p id="tText">{{stages.0.c}}</p>
-      <ol class="ticks" id="ticks" aria-hidden="true"></ol>
+      <ol class="ticks" id="ticks">
+{{#each stages join="\n"}}        <li><i aria-hidden="true"></i><span>{{.n}}</span></li>{{/each}}
+      </ol>
     </div>
   </div>
 </section>
@@ -803,7 +838,7 @@ function weather(p,time,f){const storm=sm(seg(p,.88,.93))*(1-sm(seg(p,.975,1)));
 function lights(k){if(k<=0)return;ctx.fillStyle=`rgba(255,196,110,${.55*k})`;[[1.1,2.7],[3.5,5.1],[9.0,10.6],[11.6,13.2]].forEach(([a,b])=>{poly(ctx,[P(a,1.15,0),P(b,1.15,0),P(b,2.45,0),P(a,2.45,0)]);ctx.fill();});poly(ctx,[P(HL,1.15,3.7),P(HL,1.15,5.3),P(HL,2.45,5.3),P(HL,2.45,3.7)]);ctx.fill();}
 
 /* ---- the HUD ---- */
-const tk=$('#ticks');STAGES.forEach(()=>{const li=document.createElement('li');tk.appendChild(li);});
+const tk=$('#ticks');
 const tickEls=[...tk.children];let stageIdx=-1, stageMat='';
 function hud(p,f,found){
   let idx=0;STAGES.forEach((s,i)=>{if(p>=s.w[0])idx=i;});
@@ -826,22 +861,20 @@ function hud(p,f,found){
 const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint');
 let cur=0, last=-1, tStart=performance.now();
 function target(){const r=hero.getBoundingClientRect();const span=r.height-innerHeight;return clamp(-r.top/span);}
+const STILLk=/[?&]still\b/.test(location.search), FLATk=RM||STILLk;
+if(FLATk)document.documentElement.classList.add('flat');
+{{$.film.runtime|raw}}
+const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLATk,fy:.4});
+let inFrameK=false;try{inFrameK=window.self!==window.top}catch(e){inFrameK=true}
+let AUTOk=inFrameK&&scrollY<1&&!FLATk;
+if(AUTOk)addEventListener('scroll',()=>{if(AUTOk&&scrollY>=1){AUTOk=false;film.poke()}},{passive:true});
 function frame(p,time){
-  ctx.setTransform(DPR,0,0,DPR,0,0);
-  const storm=sm(seg(p,.88,.93))*(1-sm(seg(p,.975,1))), clear=sm(seg(p,.975,1));
-  sky(storm,clear);drawClouds(time,storm);
-  ctx.drawImage(base,0,0,W,H);
-  tree(time,storm);
-  const f=roof(p,time);
-  pipe(f);chimney(f);props(f);
-  const found=tags(f);
-  lights(Math.max(storm*.6,clear));
-  weather(p,time,f);
-  // the hero copy steps aside once the job starts
-  const k=mobile?seg(p,.01,.05):seg(p,.18,.26);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
+  film.draw(FLATk?1:AUTOk?(time/Math.max(4,film.seconds()))%1:p,time);
+  const f=STAGES.map(st=>seg(p,st.w[0],st.w[1]));
+  const k=mobile?seg(p,.01,.05):seg(p,.06,.14);copy.style.opacity=(1-k).toFixed(3);copy.style.transform=`translateY(${(-k*24).toFixed(1)}px)`;copy.style.visibility=k>=1?'hidden':'visible';
   hint.style.opacity=(1-seg(p,0,.03)).toFixed(3);
-  camera(p);
-  hud(p,f,found);
+  $('#ticket').classList.toggle('on',p>.04||FLATk);
+  hud(FLATk?1:p,FLATk?f.map(()=>1):f,0);
 }
 // the camera walks up to the roof while the crew works, and steps back to watch the storm
 let camKey='';
@@ -858,12 +891,13 @@ function camera(p){
 // phones (Safari above all) give up on pages that redraw and re-make big canvases too often: draw only while the
 // hero is on screen, at a gentler rate while nothing is scrolling, and lay out again only when the canvas's size changes
 let gLast=-1e9,gForce=90;
-addEventListener('resize',()=>{gForce=30;});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
-function gate(now){const r=cv.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
+addEventListener('resize',()=>{gForce=30;film.size();});if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{gForce=30;});
+function gate(now){if(AUTOk)return false;const r=$('#stage').getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight)return true;if(gForce>0){gForce--;gLast=now;return false;}
   if(Math.abs(target()-cur)>.0004){gLast=now;return false;}if(RM||now-gLast<(TOUCH?50:33))return true;gLast=now;return false;}
 function loop(now){if(gate(now)){requestAnimationFrame(loop);return;}const time=(now-tStart)/1000;const t=target();cur=RM?t:cur+(t-cur)*.16;if(Math.abs(t-cur)<.0004)cur=t;
   // the weather and clouds move on their own; everything else follows the scroll
   frame(cur,RM?0:time);requestAnimationFrame(loop);}
+window.__keel=1;
 buildTextures();layout();
 let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{const w=cv.clientWidth,h=cv.clientHeight;if(w===gW&&h===gH)return;gW=w;gH=h;layout();},120);});
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{T.under=texUnder();});
