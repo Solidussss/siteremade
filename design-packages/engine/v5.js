@@ -1,6 +1,7 @@
 // The v5 page standard, applied to every design's page when it is built (lib/bespoke/rules.js has the full list).
 // The designs keep their own look and interactions; this adds what every page needs and none of them had:
-//   - <html lang>, a meta description (from the page's own first paragraph), html/body overflow-x:clip
+//   - <html lang>, a meta description (from the page's own first paragraph), html/body overflow-x:clip (important: a
+//     design's own body{overflow-x:hidden} under a clipped html would make the body a scroll box and unstick its hero)
 //   - a skip link to the page's main content, and visible focus outlines where a design had none
 //   - still mode: ?still in the URL makes the page behave exactly as it does for a visitor who asked for reduced
 //     motion (the designs already handle that in CSS and in their scripts), so screenshots and previews show the
@@ -26,7 +27,7 @@ const STILL = '<script>(function(){if(!/[?&]still\\b/.test(location.search))retu
   + 'try{Object.defineProperty(p,"offsetHeight",{configurable:true,get:function(){return H}});Object.defineProperty(p,"offsetTop",{configurable:true,get:function(){return top0-run}})}catch(e){}'
   + 'p.classList.add("sr-pinned")})(p,H);n++}if(n){dispatchEvent(new Event("resize"));dispatchEvent(new Event("scroll"))}}'
   + 'document.addEventListener("DOMContentLoaded",function(){all();pin()});addEventListener("load",function(){all();pin();setTimeout(function(){dispatchEvent(new Event("scroll"))},300)})})()</script>';
-const BASE_CSS = '<style>html,body{overflow-x:clip}.sr-skip{position:fixed;left:12px;top:-80px;z-index:2147483647;padding:10px 16px;border-radius:8px;background:#111;color:#fff;font:600 15px/1.2 system-ui,sans-serif;text-decoration:none}.sr-skip:focus{top:12px}.sr-still .sr-pinned{height:100vh!important;min-height:0!important;max-height:100vh!important}</style>';
+const BASE_CSS = '<style>html,body{overflow-x:clip!important}.sr-skip{position:fixed;left:12px;top:-80px;z-index:2147483647;padding:10px 16px;border-radius:8px;background:#111;color:#fff;font:600 15px/1.2 system-ui,sans-serif;text-decoration:none}.sr-skip:focus{top:12px}.sr-still .sr-pinned{height:100vh!important;min-height:0!important;max-height:100vh!important}</style>';
 const FOCUS_CSS = '<style>:where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{outline:3px solid currentColor;outline-offset:3px}</style>';
 
 function description(html) {

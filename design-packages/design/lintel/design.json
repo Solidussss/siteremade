@@ -84,5 +84,13 @@
       }
     }
   },
-  "photoHero": {"section":"#model","hide":[".gridbg","#sky","#cam"]}
+  "photoHero": {
+    "section": "#model",
+    "hide": [
+      ".gridbg",
+      "#sky",
+      "#cam"
+    ],
+    "own": true
+  }
 }

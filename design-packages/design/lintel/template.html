@@ -1,10 +1,12 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<meta name="description" content="{{hero.lede|attr}}">
 <title>{{business.name}}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&family=Instrument+Sans:wdth,wght@75..100,400..700&family=Azeret+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* Layout: drafting-table page. A pinned model-building stage, then ruled listing sheets laid on a left-aligned 12-col grid. */
+/* Layout, v5: the real house going up at dusk (the listing's video or photos, or the design's own take) with the
+   floor plan drawing itself on a blueprint card, then ruled listing sheets laid on a left-aligned 12-col grid. */
 :root{
   --paper:#ECEEE8; --paper-2:#E2E5DE; --sheet:#F5F6F2;
   --ink:#1B2523; --ink-2:#46534F; --muted:#6F7C77; --rule:#C3CAC2; --rule-2:#D5DAD3;
@@ -164,6 +166,27 @@ button{font:inherit;color:inherit}
   .hud-cap{font-size:12.5px}
 }
 
+/* v5: the real house going up (the listing's video or photos, or the design's own take) plays as you scroll, and the
+   floor plan draws itself room by room on a blueprint card; at the end the plan comes forward over the dusk */
+.stage .poster,#film{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.stage .poster{object-fit:cover}
+.shade{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(12,18,24,.72) 0%,rgba(12,18,24,.25) 40%,transparent 60%),linear-gradient(0deg,rgba(12,18,24,.55),transparent 35%);transition:background .4s}
+.stage.planview .shade{background:rgba(12,18,24,.62)}
+.hero-copy h1,.hero-copy .lede,.hero-copy .eyebrow,.hero-copy .price{color:#f7f3ec;text-shadow:0 2px 20px rgba(0,0,0,.45)}
+.hero-copy .chip{background:rgba(247,243,236,.16);color:#f7f3ec;border-color:rgba(247,243,236,.3)}
+.stagelist{display:none}
+.blue{position:absolute;z-index:4;right:var(--gut);bottom:calc(env(safe-area-inset-bottom,0px) + 24px);width:min(400px,34vw);margin:0;padding:14px 14px 10px;border-radius:6px;background:rgba(16,41,74,.86);box-shadow:0 30px 60px -30px rgba(0,0,0,.6),inset 0 0 0 1px rgba(207,227,255,.28);transform-origin:100% 100%;transition:transform .7s cubic-bezier(.16,1,.3,1);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.blue svg{display:block;width:100%;height:auto}
+.blue figcaption{display:flex;justify-content:space-between;gap:10px;margin-top:8px;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#cfe3ff}
+.plan-room{fill:rgba(207,227,255,0);stroke:#cfe3ff;stroke-width:.35;transition:fill .5s}
+.plan-room.on{fill:rgba(207,227,255,.08)}
+.plan-lbl{fill:#e6f0ff;font-family:var(--f-mono);font-size:1.5px;text-anchor:middle;opacity:0;transition:opacity .5s}
+.plan-lbl.on{opacity:1}
+.plan-out{fill:none;stroke:#ffffff;stroke-width:.7}
+.split .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.08em}
+.split .w>i{display:inline-block;font-style:normal;animation:rise .9s cubic-bezier(.16,1,.3,1) both}
+@keyframes rise{from{transform:translateY(108%)}}
+@media (max-width:760px){.blue{width:46vw;padding:8px 8px 6px;bottom:auto;top:calc(env(safe-area-inset-top,0px) + 70px);right:var(--gut);transform-origin:100% 0}.blue figcaption{font-size:9px}.blue figcaption span:first-child{display:none}}
 /* ---------- sections ---------- */
 .sec{padding:clamp(72px,10vw,128px) var(--gut);position:relative}
 .sec-head{display:grid;gap:14px;max-width:760px;margin-bottom:clamp(28px,4vw,48px)}
@@ -364,9 +387,15 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <main>
 <section class="hero" id="model" aria-label="{{listing.address|attr}}, built as a scroll model">
   <div class="stage" id="stage">
-    <div class="gridbg"></div>
-    <div class="sky" id="sky"></div>
-    <div class="cam" id="cam"><div class="world w3" id="world"></div></div>
+{{#if $.film.poster}}    <img class="poster" src="{{$.film.poster|attr}}" alt="" aria-hidden="true">
+{{/if}}    <canvas id="film" role="img" aria-label="{{listing.address|attr}}: the house going up, from the frame to lights on at dusk"></canvas>
+    <div class="shade" aria-hidden="true"></div>
+    <div class="sky" id="sky" hidden></div>
+    <div class="cam" id="cam" hidden><div class="world w3" id="world"></div></div>
+    <figure class="blue" id="blue" aria-label="Floor plan, {{listing.address|attr}}">
+      <svg id="plan" role="img" aria-label="Floor plan"></svg>
+      <figcaption><span>Floor plan{{#if $.illustrative}} · layout drawn to show the sizes{{/if}}</span><span id="planSq">0 sq ft</span></figcaption>
+    </figure>
 
     <div class="hero-copy" id="heroCopy">
       <p class="eyebrow">{{hero.eyebrow}}</p>
@@ -738,9 +767,51 @@ function loop(now){
   if(built){const t=target();cur=reduce?t:cur+(t-cur)*(1-Math.pow(.0015,dt));if(Math.abs(t-cur)<.0002)cur=t;if(cur!==last){apply(cur);last=cur}}
   requestAnimationFrame(loop);
 }
-build();
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{build();apply(cur)},150)});
-cur=target();apply(cur);requestAnimationFrame(loop);
+/* the film and the plan */
+const STILL=/[?&]still\b/.test(location.search), FLAT=reduce||STILL;
+if(FLAT)document.documentElement.classList.add('flat');
+{{$.film.runtime|raw}}
+const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fx:.6});
+const planSvg=$('#plan'), blue=$('#blue'), planSq=$('#planSq'), NSs='http://www.w3.org/2000/svg';
+const PX=Math.min(...rooms.map(r=>r.x)), PY=Math.min(...rooms.map(r=>r.y)), PW=Math.max(...rooms.map(r=>r.x+r.w))-PX, PD=Math.max(...rooms.map(r=>r.y+r.d))-PY;
+planSvg.setAttribute('viewBox',`${PX-2} ${PY-2} ${PW+4} ${PD+4}`);
+const order=rooms.map((r,i)=>i).sort((a,b)=>(rooms[a].y-rooms[b].y)||(rooms[a].x-rooms[b].x));
+const prs=rooms.map(r=>{const g=document.createElementNS(NSs,'g');const rc=document.createElementNS(NSs,'rect');rc.setAttribute('x',r.x);rc.setAttribute('y',r.y);rc.setAttribute('width',r.w);rc.setAttribute('height',r.d);rc.setAttribute('class','plan-room');const per=2*(r.w+r.d);rc.style.strokeDasharray=per;rc.style.strokeDashoffset=per;
+  const t=document.createElementNS(NSs,'text');t.setAttribute('x',r.x+r.w/2);t.setAttribute('y',r.y+r.d/2);t.setAttribute('class','plan-lbl');const fs=Math.min(1.6,(r.w-1)/(Math.max(r.name.length,5)*.62));if(fs>=.75){t.style.fontSize=fs+'px';const a=document.createElementNS(NSs,'tspan');a.setAttribute('x',r.x+r.w/2);a.setAttribute('dy','-.2em');a.textContent=r.name;const b=document.createElementNS(NSs,'tspan');b.setAttribute('x',r.x+r.w/2);b.setAttribute('dy','1.25em');b.textContent=`${r.w}′ × ${r.d}′`;b.style.opacity=.7;t.append(a,b)}g.append(rc,t);planSvg.appendChild(g);return{rc,t,per,a:r.w*r.d}});
+const out=document.createElementNS(NSs,'rect');out.setAttribute('x',PX);out.setAttribute('y',PY);out.setAttribute('width',PW);out.setAttribute('height',PD);out.setAttribute('class','plan-out');planSvg.appendChild(out);
+function plan(p){
+  let sq=0;order.forEach((ri,k)=>{const a=.08+k*(.62/order.length),e=clamp((p-a)/.07),R=prs[ri];R.rc.style.strokeDashoffset=(R.per*(1-e)).toFixed(2);R.rc.classList.toggle('on',e>=1);R.t.classList.toggle('on',e>=1);sq+=R.a*e});
+  return sq;
+}
+function apply2(p){
+  const sq=plan(FLAT?1:p);
+  if(Math.round(sq)!==lastSq){lastSq=Math.round(sq);sqftEl.textContent=fmt(sq);sqmEl.textContent=(sq*.092903).toFixed(1)+' m²';planSq.textContent=fmt(sq)+' sq ft';}
+  const copyFade=mobile?clamp((p-.015)/.05):clamp((p-.3)/.08);
+  heroCopy.style.opacity=(1-copyFade).toFixed(3);heroCopy.style.transform=`translateY(${-copyFade*30}px)`;heroCopy.style.visibility=copyFade>=1?'hidden':'visible';
+  hint.style.opacity=(1-clamp(p/.03)).toFixed(3);
+  // at the end the plan comes forward, to the middle of the screen
+  const big=clamp((p-.82)/.08), sw=stage.clientWidth, sh=stage.clientHeight, r=blue.getBoundingClientRect(), sr=stage.getBoundingClientRect();
+  stage.classList.toggle('planview',big>.5);
+  if(big>0&&!mobile){const k=Math.min(sw*.62/r.width*(blue.style.transform?1:1),sh*.7/r.height,2.2);const s2=1+(k-1)*big;const bx=sw-parseFloat(getComputedStyle(blue).right)-(sw/2+r.width*s2/2), by=(sh-parseFloat(getComputedStyle(blue).bottom))-(sh/2+r.height*s2/2);blue.style.transform=`translate(${(-bx*big).toFixed(1)}px,${(-by*big).toFixed(1)}px) scale(${s2.toFixed(3)})`}else blue.style.transform='';
+  let idx=0;STAGES.forEach((s,i)=>{if(p>=s.t)idx=i});
+  if(idx!==stageIdx){stageIdx=idx;hudStage.textContent=STAGES[idx].n;hudNum.textContent='STAGE '+String(idx+1).padStart(2,'0')+'/09';hudCap.textContent=idx===8?{{$.planCaption|js}}:STAGES[idx].c;tick(440+idx*55);}
+  STAGES.forEach((s,i)=>{const end=i<8?STAGES[i+1].t:1;tickEls[i].style.transform=`scaleX(${clamp((p-s.t)/(end-s.t)).toFixed(3)})`});
+}
+let inFrameL=false;try{inFrameL=window.self!==window.top}catch(e){inFrameL=true}
+let AUTO=inFrameL&&scrollY<1&&!FLAT;
+if(AUTO)addEventListener('scroll',()=>{if(AUTO&&scrollY>=1){AUTO=false;film.poke()}},{passive:true});
+mobile=stage.clientWidth<760;
+addEventListener('resize',()=>{mobile=stage.clientWidth<760;film.size();last=-1});
+function loop2(now){
+  const dt=Math.min(.1,(now-lastT)/1000);lastT=now;
+  const t=FLAT?1:target();cur=reduce?t:cur+(t-cur)*(1-Math.pow(.0015,dt));if(Math.abs(t-cur)<.0002)cur=t;
+  const r=hero.getBoundingClientRect();
+  if(r.bottom>0&&r.top<innerHeight){film.draw(FLAT?1:AUTO?((now/1000)/Math.max(4,film.seconds()))%1:Math.min(1,cur/.8),now/1000);if(cur!==last){apply2(FLAT?.5:cur);last=cur}}
+  requestAnimationFrame(loop2);
+}
+(function(){const h=heroCopy.querySelector('h1');if(!h||reduce||STILL)return;const ws=h.textContent.split(/(\s+)/);h.textContent='';let k=0;ws.forEach(x=>{if(!x)return;if(/^\s+$/.test(x)){h.appendChild(document.createTextNode(' '));return}const w=document.createElement('span');w.className='w';const i=document.createElement('i');i.textContent=x;i.style.animationDelay=(150+k++*80)+'ms';w.appendChild(i);h.appendChild(w)});h.classList.add('split')})();
+cur=FLAT?1:target();apply2(FLAT?.5:cur);requestAnimationFrame(loop2);
+window.__lintel=1;
 
 /* ================= ROOM TOUR ================= */
 const TOUR=[
