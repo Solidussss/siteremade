@@ -329,7 +329,9 @@ footer{padding:clamp(80px,10vw,140px) var(--gutter) max(28px,env(safe-area-inset
   html{scroll-behavior:auto}
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
-{{$._guards|raw}}</style>
+{{$._guards|raw}}/* phone: no label under 11px */
+@media (max-width:820px){.strip button em,.item .tags span{font-size:11px!important}}
+</style>
 </head>
 <body>
 <header class="nav" id="nav">

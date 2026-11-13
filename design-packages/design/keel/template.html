@@ -136,7 +136,13 @@ p{margin:0}
   .ticket{left:var(--gut);right:var(--gut);top:auto;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:none;width:auto}
   .ticks{display:none}
   .reads{bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+  /* the tally keeps to one line a cell so the ticket never sits on it */
+  .reads div{padding:8px 6px}
+  .reads dt{letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .reads dd{white-space:nowrap}
+  .reads dd small{font-size:10.5px;margin-left:2px}
 }
+@media (max-width:820px){.hero dt,.hero .stage small{font-size:10.5px!important}}
 /* sections */
 section.block{padding-block:clamp(80px,11vw,150px)}
 .head{display:grid;gap:14px;max-width:780px;margin-bottom:clamp(30px,4vw,52px)}

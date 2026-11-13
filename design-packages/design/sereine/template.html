@@ -117,6 +117,12 @@ p{margin:0}
   .fread dd{font-size:20px}
 }
 
+@media (max-width:820px){
+  /* the band at the top that keeps the step's words readable once the wash behind the title has gone */
+  .stage::before{content:"";position:absolute;left:0;right:0;top:0;height:38%;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(244,237,230,.92),rgba(244,237,230,.6) 55%,rgba(244,237,230,0))}
+}
+
+@media (max-width:820px){.hero dt,.hero .stage small{font-size:10.5px!important}}
 /* sections */
 section.block{padding-block:clamp(84px,11vw,150px)}
 .head{max-width:720px;display:grid;gap:16px;margin-bottom:clamp(36px,5vw,60px)}
@@ -413,7 +419,7 @@ const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint'), fcap=$('#fcap'), cN=
 const STILL=/[?&]still\b/.test(location.search), FLAT=RM||STILL;
 if(FLAT)document.documentElement.classList.add('flat');
 {{$.film.runtime|raw}}
-const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fx:.62,fy:.5});
+const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fx:innerWidth<820?.7:.62,fy:.5});
 let inFrame=false;try{inFrame=window.self!==window.top}catch(e){inFrame=true}
 let AUTO=inFrame&&scrollY<1&&!FLAT;
 if(AUTO)addEventListener('scroll',()=>{if(AUTO&&scrollY>=1){AUTO=false;film.poke()}},{passive:true});
@@ -541,6 +547,11 @@ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{shop();ro
 })();
 </script>
 
+<script>
+/* on a phone the pale wash behind the title goes with the title, so the film shows; a short band stays at the top */
+(function(){const c=document.getElementById('heroCopy'),v=document.querySelector('.stage .veil');if(!c||!v)return;const mq=matchMedia('(max-width:820px)');let last='';
+ (function tick(){const o=mq.matches?String(Math.max(0,Math.min(1,parseFloat(c.style.opacity===''?'1':c.style.opacity)))):'';if(o!==last){v.style.opacity=o;last=o;}requestAnimationFrame(tick);})();})();
+</script>
 <script>
 /* the title arrives word by word */
 (function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;let k=0;
