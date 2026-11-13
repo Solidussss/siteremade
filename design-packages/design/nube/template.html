@@ -387,7 +387,7 @@ const money = n => {{locale.currency|js}} + n.toFixed(2);
 
 /* =========================== THE CUP OPENS =========================== */
 {{$.film.runtime|raw}}
-const film = SRFilm($('#film'), {{$.film.json|raw}}, { flat: FLAT });
+const film = SRFilm($('#film'), {{$.film.json|raw}}, { sharp:matchMedia('(max-width:820px)').matches,flat: FLAT });
 const hero = $('#top'), stage = $('#stage'), heroH = $('#heroH'), l1 = $('.l1'), l2 = $('.l2');
 const nav = $('#nav'), hfoot = $('#hfoot'), scale = $('#scale'), cap = $('#cap'), lcd = $('#lcd'), ticks = $$('#ticks i'), endcard = $('#endcard'), rim = $('#rim');
 const POUR = [{{#each hero.pour join=", "}}{{.|js}}{{/each}}];

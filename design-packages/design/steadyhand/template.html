@@ -469,7 +469,7 @@ addEventListener('keydown',e=>{if(e.key==='Escape'&&!sheet.hidden){setSheet(fals
 
 /* ---------- the mirror: the cut plays with the scroll ---------- */
 {{$.film.runtime|raw}}
-const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fy:.4});
+const film=SRFilm($('#film'),{{$.film.json|raw}},{sharp:matchMedia('(max-width:820px)').matches,flat:FLAT,fy:.4});
 const hero=$('#hero'),copy=$('#copy'),stgs=$$('.stg'),clk=$('#clk'),gmark=$('#gmark'),gl=$$('#guards li:not(.rail)'),endbook=$('#endbook');
 // the five steps of the cut through the take, and where the clock is at each (minutes of a 45-minute fade)
 const ST=[{a:0,b:.1,t0:0,t1:2},{a:.1,b:.55,t0:2,t1:22},{a:.55,b:.75,t0:22,t1:36},{a:.75,b:.88,t0:36,t1:41},{a:.88,b:1,t0:41,t1:45}];

@@ -127,6 +127,16 @@ p{margin:0}
 }
 
 @media (max-width:820px){.hero dt,.hero .stage small{font-size:10.5px!important}}
+/* phone: the film in a panel */
+@media (max-width:820px){
+.stage{--pt:calc(env(safe-area-inset-top,0px) + 126px);--ph:min(calc((100vw - 24px) * 1.2),40svh)}
+.stage .poster, #film, #glow{inset:var(--pt) 12px auto 12px!important;width:calc(100% - 24px)!important;height:var(--ph)!important;border-radius:10px;overflow:hidden}
+#film,.stage .poster{box-shadow:0 22px 44px -26px rgba(0,0,0,.55)}
+#veil, .low{display:none!important}
+#heroCopy{top:calc(var(--pt) + var(--ph) + 16px)!important;bottom:auto!important}
+#now{top:calc(var(--pt) + var(--ph) + 12px)!important;bottom:auto!important}
+}
+/* end phone panel */
 /* sections */
 section.block{padding-block:clamp(84px,11vw,150px)}
 .head{max-width:740px;display:grid;gap:16px;margin-bottom:clamp(36px,5vw,60px)}
@@ -404,7 +414,7 @@ const hero=$('#top'), copy=$('#heroCopy'), hint=$('#hint'), now=$('#now'), ood=$
 const STILL=/[?&]still\b/.test(location.search), FLAT=RM||STILL;
 if(FLAT)document.documentElement.classList.add('flat');
 {{$.film.runtime|raw}}
-const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fx:.55,fy:.5});
+const film=SRFilm($('#film'),{{$.film.json|raw}},{sharp:matchMedia('(max-width:820px)').matches,flat:FLAT,fx:.55,fy:.5});
 let inFrame=false;try{inFrame=window.self!==window.top}catch(e){inFrame=true}
 let AUTO=inFrame&&scrollY<1&&!FLAT;
 if(AUTO)addEventListener('scroll',()=>{if(AUTO&&scrollY>=1){AUTO=false;film.poke()}},{passive:true});
@@ -524,6 +534,11 @@ let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(drawSpaces,
 })();
 </script>
 
+<script>
+/* phone: these wait for the title to go */
+(function(){const c=document.getElementById('heroCopy'),els=[...document.querySelectorAll("#ood")];if(!c||!els.length)return;const mq=matchMedia('(max-width:820px)');let last='';
+ (function tick(){let o='';if(mq.matches){const v=parseFloat(getComputedStyle(c).opacity);o=String(Math.max(0,Math.min(1,1-v*1.6)));}if(o!==last){for(const e of els){e.style.opacity=o;e.style.visibility=o==='0'?'hidden':''}last=o;}requestAnimationFrame(tick);})();})();
+</script>
 <script>
 /* the title arrives word by word */
 (function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||/[?&]still\b/.test(location.search))return;const h=document.querySelector('[data-split]')||document.querySelector('main h1:not(.sr)');if(!h)return;let k=0;

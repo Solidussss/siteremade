@@ -562,7 +562,7 @@ function tink(i){
 const STILL=/[?&]still\b/.test(location.search), FLAT=RM||STILL;
 if(FLAT)document.documentElement.classList.add("flat");
 {{$.film.runtime|raw}}
-const film=SRFilm($("#film"),{{$.film.json|raw}},{flat:FLAT,fx:.55,fy:.45});
+const film=SRFilm($("#film"),{{$.film.json|raw}},{sharp:matchMedia('(max-width:820px)').matches,flat:FLAT,fx:.55,fy:.45});
 const SHADES=[
   {c:"A3.5",rank:16,stage:"Shade taken at the chair",t:0},
   {c:"A3",  rank:13,stage:"Polish lifts surface stain",t:20},

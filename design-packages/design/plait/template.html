@@ -486,7 +486,7 @@ function hud(p){
 const STILLp=/[?&]still\b/.test(location.search), FLATp=RM||STILLp;
 if(FLATp)document.documentElement.classList.add('flat');
 {{$.film.runtime|raw}}
-const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLATp});
+const film=SRFilm($('#film'),{{$.film.json|raw}},{sharp:matchMedia('(max-width:820px)').matches,flat:FLATp});
 const board=$('#board'), side=$('#side'), laneEls=[...board.querySelectorAll('.lane')];
 const escH=x=>String(x).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const KC=CARDS.map((c,i)=>{const el=document.createElement('div');el.className='kcard';el.innerHTML=`<span class="g" style="--c:${SRC_COL[c.s%5]}">${escH(SOURCES[c.s]?SOURCES[c.s].g:'')}</span><span class="t">${escH(c.t)}</span><span class="who">${escH(c.who)}</span>`;board.appendChild(el);const r=rng(i*7+11);return{el,c,i,rx:r(),ry:r(),rr:r()}});

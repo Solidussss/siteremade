@@ -283,7 +283,16 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
   .play .disc::after { animation: none; }
   .cap, .cw-hp, .cell .fill { transition: none; }
 }
-{{$._guards|raw}}</style>
+{{$._guards|raw}}/* phone: the film in a panel */
+@media (max-width:820px){
+.stage{--pt:calc(env(safe-area-inset-top,0px) + 150px);--ph:min(calc((100vw - 24px) * 1.2),43svh)}
+.stage .poster, #film, .tint, #fx{inset:var(--pt) 12px auto 12px!important;width:calc(100% - 24px)!important;height:var(--ph)!important;border-radius:10px;overflow:hidden}
+#film,.stage .poster{box-shadow:0 22px 44px -26px rgba(0,0,0,.55)}
+.scrim{display:none!important}
+#heroCopy{top:calc(var(--pt) + var(--ph) + 16px)!important;bottom:auto!important}
+}
+/* end phone panel */
+</style>
 
 <header class="nav">
   <a class="logo" href="#top" aria-label="{{brand.name|attr}} home">
@@ -817,7 +826,7 @@ footer { padding: clamp(60px, 8vw, 110px) var(--gutter) calc(env(safe-area-inset
   const STILL = /[?&]still\b/.test(location.search), FLAT = RM || STILL;
   if (FLAT) document.documentElement.classList.add('flat');
   {{$.film.runtime|raw}}
-  const film = SRFilm($('#film'), {{$.film.json|raw}}, { flat: FLAT, fy: .45 });
+  const film = SRFilm($('#film'),{{$.film.json|raw}},{sharp:matchMedia('(max-width:820px)').matches, flat: FLAT, fy: .45 });
   let inFrame = false; try { inFrame = window.self !== window.top; } catch (e) { inFrame = true; }
   let AUTO = inFrame && scrollY < 1 && !FLAT;
   if (AUTO) addEventListener('scroll', () => { if (AUTO && scrollY >= 1) { AUTO = false; film.poke(); } }, { passive: true });

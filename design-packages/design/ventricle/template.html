@@ -564,7 +564,7 @@ function beep(f,d=.07,v=.08,type='sine'){
 const STILL=/[?&]still\b/.test(location.search), FLAT=RM||STILL;
 if(FLAT)document.documentElement.classList.add('flat');
 {{$.film.runtime|raw}}
-const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fy:.45});
+const film=SRFilm($('#film'),{{$.film.json|raw}},{sharp:matchMedia('(max-width:820px)').matches,flat:FLAT,fy:.45});
 const hero=$('#top'), stage=$('#stage'), word=$('#word'), wordbox=word.parentElement;
 const bpmEl=$('#bpm'), pctEl=$('#pct'), heart=$('#heart'), head=$('#head'), vign=$('#vign'), flash=$('#flash'), mark=$('#mark'), tint=$('#tint');
 const hudStage=$('#hudStage'), intro=$('#intro'), zcap=$('#zcap'), zTag=$('#zcapTag'), zText=$('#zcapText');

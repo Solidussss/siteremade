@@ -170,7 +170,17 @@ footer { padding: 12vh var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 28p
 .f-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-family: var(--mono); font-size: 13px; color: var(--dim); }
 
 @media (prefers-reduced-motion: reduce) { .set, .set .shot img, .btn { transition: none; } }
-{{$._guards|raw}}</style>
+{{$._guards|raw}}/* phone: the film in a panel */
+@media (max-width:820px){
+.stage{--pt:calc(env(safe-area-inset-top,0px) + 78px);--ph:min(calc((100vw - 24px) * 1.2),45svh);background:var(--bg)}
+.stage .poster, #film{inset:var(--pt) 12px auto 12px!important;width:calc(100% - 24px)!important;height:var(--ph)!important;border-radius:10px;overflow:hidden}
+#film,.stage .poster{box-shadow:0 22px 44px -26px rgba(0,0,0,.55)}
+.scrim{display:none!important}
+.h-top{top:calc(var(--pt) + var(--ph) + 12px)!important;bottom:auto!important}
+#booklet{top:calc(var(--pt) + var(--ph) - 230px)!important;bottom:auto!important;right:22px!important}
+}
+/* end phone panel */
+</style>
 
 <nav class="nav" aria-label="Main">
   <a class="logo" href="#top"><svg viewBox="0 0 34 24" aria-hidden="true"><rect x="2" y="9" width="30" height="14" rx="2.5" fill="{{Y:#ffc928}}"/><rect x="6" y="3" width="8" height="7" rx="2" fill="{{Y:#ffc928}}"/><rect x="20" y="3" width="8" height="7" rx="2" fill="{{Y:#ffc928}}"/><rect x="2" y="19" width="30" height="4" rx="2" fill="{{Y:#b88a0c}}"/></svg>{{brand.name}}</a>
@@ -532,7 +542,7 @@ footer { padding: 12vh var(--gutter) calc(env(safe-area-inset-bottom, 0px) + 28p
   const STILL = /[?&]still\b/.test(location.search), FLAT = reduce || STILL;
   if (FLAT) document.documentElement.classList.add('flat');
   {{$.film.runtime|raw}}
-  const film = SRFilm($('#film'), {{$.film.json|raw}}, { flat: FLAT, fy: .55 });
+  const film = SRFilm($('#film'),{{$.film.json|raw}},{sharp:matchMedia('(max-width:820px)').matches, flat: FLAT, fy: .55 });
   const hero = $('#top');
   const TOTAL = rocket({{$.firstKey|js}}).length;
   $('#cTot').textContent = String(TOTAL);
