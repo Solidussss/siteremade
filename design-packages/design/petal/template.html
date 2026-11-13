@@ -139,6 +139,18 @@ p{margin:0}
 }
 
 @media (max-width:820px){.hero dt,.hero .stage small{font-size:10.5px!important}}
+/* phone: the film in a panel */
+@media (max-width:820px){
+.stage{--pt:calc(env(safe-area-inset-top,0px) + 70px);--ph:min(calc(100vw - 24px),44svh)}
+  .stage .poster,#film{inset:var(--pt) 12px auto 12px;width:calc(100% - 24px);height:var(--ph);border-radius:14px;box-shadow:0 22px 44px -26px rgba(60,40,30,.5)}
+  .stage::before,.veil{display:none}
+  .hero-copy{top:calc(var(--pt) + var(--ph) + 16px);gap:8px}
+  .hero h1{font-size:clamp(30px,8.6vw,40px)}
+  .hero .lede{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .now{top:calc(var(--pt) + var(--ph) + 14px);bottom:auto}
+  .gtag{top:calc(var(--pt) + var(--ph) - 150px);right:22px}
+}
+/* end phone panel */
 /* sections */
 section.block{padding-block:clamp(84px,11vw,150px)}
 .head{max-width:740px;display:grid;gap:16px;margin-bottom:clamp(36px,5vw,60px)}
@@ -429,7 +441,7 @@ gtag.style.setProperty('--rib',WRAP.ribbon);gtag.style.setProperty('--paper2',WR
 const STILL=/[?&]still\b/.test(location.search), FLAT=RM||STILL;
 if(FLAT)document.documentElement.classList.add('flat');
 {{$.film.runtime|raw}}
-const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fx:.62,fy:.45});
+const film=SRFilm($('#film'),{{$.film.json|raw}},{sharp:matchMedia('(max-width:820px)').matches,flat:FLAT,fx:.62,fy:.45});
 let inFrame=false;try{inFrame=window.self!==window.top}catch(e){inFrame=true}
 let AUTO=inFrame&&scrollY<1&&!FLAT;
 if(AUTO)addEventListener('scroll',()=>{if(AUTO&&scrollY>=1){AUTO=false;film.poke()}},{passive:true});
@@ -569,6 +581,11 @@ addEventListener('resize',()=>drawMini());
 /* on a phone the pale wash behind the title goes with the title, so the film shows; a short band stays at the top */
 (function(){const c=document.getElementById('heroCopy'),v=document.querySelector('.stage .veil');if(!c||!v)return;const mq=matchMedia('(max-width:820px)');let last='';
  (function tick(){const o=mq.matches?String(Math.max(0,Math.min(1,parseFloat(c.style.opacity===''?'1':c.style.opacity)))):'';if(o!==last){v.style.opacity=o;last=o;}requestAnimationFrame(tick);})();})();
+</script>
+<script>
+/* phone: these wait for the title to go */
+(function(){const c=document.getElementById('heroCopy'),els=[...document.querySelectorAll(".count")];if(!c||!els.length)return;const mq=matchMedia('(max-width:820px)');let last='';
+ (function tick(){let o='';if(mq.matches){const v=parseFloat(c.style.opacity===''?'1':c.style.opacity);o=String(Math.max(0,Math.min(1,1-v*1.6)));}if(o!==last){for(const e of els){e.style.opacity=o;e.style.visibility=o==='0'?'hidden':''}last=o;}requestAnimationFrame(tick);})();})();
 </script>
 <script>
 /* the title arrives word by word */

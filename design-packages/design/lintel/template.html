@@ -371,6 +371,21 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 .foot-row a{color:var(--ink)}
 
 @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}.hint i{animation:none}#sketch,.breakdown i{transition:none}}
+/* phone: the film in a panel */
+@media (max-width:760px){
+.stage{--pt:calc(env(safe-area-inset-top,0px) + 70px);--ph:min(calc((100vw - 24px) * 1.2),54svh)}
+  .stage .poster,#film{inset:var(--pt) 12px auto 12px;width:calc(100% - 24px);height:var(--ph);border-radius:6px;box-shadow:0 22px 44px -24px rgba(27,37,35,.55)}
+  .shade{display:none}
+  .hero-copy{top:calc(var(--pt) + var(--ph) + 18px);left:var(--gut);right:var(--gut)}
+  .hero-copy h1,.hero-copy .price{color:var(--ink);text-shadow:none}
+  .hero-copy .lede{color:var(--ink-2);text-shadow:none}
+  .hero-copy .eyebrow{color:var(--muted);text-shadow:none}
+  .hero-copy .chip{background:var(--sheet);color:var(--ink-2);border-color:var(--rule)}
+  .blue{left:12px;right:12px;width:auto;top:calc(var(--pt) + var(--ph) + 12px);bottom:auto;display:flex;align-items:center;gap:12px;padding:8px 12px}
+  .blue svg{width:auto;height:96px;max-width:58%}
+  .blue figcaption{flex-direction:column;margin:0}
+}
+/* end phone panel */
 {{$.navCss|raw}}{{$._guards|raw}}</style>
 
 <nav class="nav" aria-label="Main">
@@ -547,6 +562,11 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 /* on a phone the floor plan waits for the title to go, so it never sits on the words */
 (function(){const c=document.getElementById('heroCopy'),b=document.getElementById('blue');if(!c||!b)return;const mq=matchMedia('(max-width:760px)');let last='';
  (function tick(){let o='';if(mq.matches){const v=parseFloat(c.style.opacity===''?'1':c.style.opacity);o=String(Math.max(0,Math.min(1,1-v*1.6)));}if(o!==last){b.style.opacity=o;b.style.visibility=o==='0'?'hidden':'';last=o;}requestAnimationFrame(tick);})();})();
+</script>
+<script>
+/* phone: these wait for the title to go */
+(function(){const c=document.getElementById('heroCopy'),els=[...document.querySelectorAll(".hud")];if(!c||!els.length)return;const mq=matchMedia('(max-width:760px)');let last='';
+ (function tick(){let o='';if(mq.matches){const v=parseFloat(c.style.opacity===''?'1':c.style.opacity);o=String(Math.max(0,Math.min(1,1-v*1.6)));}if(o!==last){for(const e of els){e.style.opacity=o;e.style.visibility=o==='0'?'hidden':''}last=o;}requestAnimationFrame(tick);})();})();
 </script>
 <script>
 (function(){
@@ -777,7 +797,7 @@ function loop(now){
 const STILL=/[?&]still\b/.test(location.search), FLAT=reduce||STILL;
 if(FLAT)document.documentElement.classList.add('flat');
 {{$.film.runtime|raw}}
-const film=SRFilm($('#film'),{{$.film.json|raw}},{flat:FLAT,fx:.6});
+const film=SRFilm($('#film'),{{$.film.json|raw}},{sharp:matchMedia('(max-width:760px)').matches,flat:FLAT,fx:.6});
 const planSvg=$('#plan'), blue=$('#blue'), planSq=$('#planSq'), NSs='http://www.w3.org/2000/svg';
 const PX=Math.min(...rooms.map(r=>r.x)), PY=Math.min(...rooms.map(r=>r.y)), PW=Math.max(...rooms.map(r=>r.x+r.w))-PX, PD=Math.max(...rooms.map(r=>r.y+r.d))-PY;
 planSvg.setAttribute('viewBox',`${PX-2} ${PY-2} ${PW+4} ${PD+4}`);
